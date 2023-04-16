@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.toggle-effect Property Inspector</title>
+    <link rel="stylesheet" href="../../libs/css/sdpi.css" />
+  </head>
+
+  <body>
+    <div class="sdpi-hide-layer">
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Scene</div>
+        <select class="sdpi-item-value select" id="scene" disabled></select>
+      </div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Layer</div>
+        <select class="sdpi-item-value select" id="layer" disabled></select>
+      </div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Effect</div>
+        <select class="sdpi-item-value select" id="effect" disabled></select>
+      </div>
+    
+      <div class="sdpi-item" id="loading" style="display: none;">
+        <div class="sdpi-connecting">Connecting to Meld Studio...</div>
+      </div>
+    </div>
+
+    <!-- libs -->
+    <script src="../../libs/js/utils.js"></script>
+    <script src="../../libs/js/constants.js"></script>
+    <script src="../../libs/js/events.js"></script>
+    <script src="../../libs/js/api.js"></script>
+    <script src="../../libs/js/property-inspector.js"></script>
+    <script src="../../libs/js/timers.js"></script>
+    <script src="../../libs/js/qwebchannel.js"></script>
+    <script src="../../libs/js/meldstudio.js"></script>
+    <script src="../../libs/js/inspector.js"></script>
+
+
+    <script>
+      $MS.on('ready', () => {
+		    console.log($MS.meld.session.items)
+      })
+      $PI.on("connected", () => {
+        $MSPI.watchConnections('loading');
+        $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-effect", [
+          "scene",
+          "layer",
+          "effect"
+        ]);
+      });
+    </script>
+  </body>
+</html>
