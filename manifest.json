@@ -40,10 +40,10 @@
       "Name": "Mute Track",
       "States": [
         {
-          "Image": "assets/muteTrack"
+          "Image": "assets/unmutedTrack"
         },
         {
-          "Image": "assets/unmuteTrack"
+          "Image": "assets/mutedTrack"
         }
       ],
       "SupportedInMultiActions": true,
@@ -88,10 +88,10 @@
       "Name": "Record",
       "States": [
         {
-          "Image": "assets/stopRecord"
+          "Image": "assets/startRecord"
         },
         {
-          "Image": "assets/startRecord"
+          "Image": "assets/stopRecord"
         }
       ],
       "SupportedInMultiActions": true,

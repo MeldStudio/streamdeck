@@ -15,7 +15,7 @@
         "Tooltip": "Show a specified scene."
     },
     "co.meldstudio.streamdeck.toggle-effect": {
-        "Name": "Effect Visilibity",
+        "Name": "Effect Visibility",
         "Tooltip": "Toggle effect visibility."
     },
     "co.meldstudio.streamdeck.toggle-recorde": {
