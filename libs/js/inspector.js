@@ -50,6 +50,9 @@ class MeldStudioPropertyInspector {
 			$MS.on('ready', () => {
 				this.updateSelection(elements);
 			});
+			$MS.on('sessionChanged', () => {
+				this.updateSelection(elements);
+			});
 			return;
 		}
 

@@ -40,10 +40,10 @@
       "Name": "Mute Track",
       "States": [
         {
-          "Image": "assets/unmutedTrack"
+          "Image": "assets/mutedTrack"
         },
         {
-          "Image": "assets/mutedTrack"
+          "Image": "assets/unmutedTrack"
         }
       ],
       "SupportedInMultiActions": true,

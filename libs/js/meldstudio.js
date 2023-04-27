@@ -28,14 +28,17 @@ class MeldStudio {
 				this.meld = channel.objects.meld;
 
 				this.meld.sessionChanged.connect(() => {
+					console.log('Session Changed');
 					this.emit('sessionChanged', this.meld.session);
 				});
 
 				this.meld.isStreamingChanged.connect(() => {
+					console.log('Streaming Changed');
 					this.emit('isStreamingChanged', this.meld.isStreaming);
 				});
 
 				this.meld.isRecordingChanged.connect(() => {
+					console.log('Recording Changed');
 					this.emit('isRecordingChanged', this.meld.isRecording);
 				});
 
