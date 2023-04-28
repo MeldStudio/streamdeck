@@ -1,0 +1,36 @@
+{
+    "Description": "Level-up your live stream with Meld Studio with Elgato Stream Deck integration!",
+    "Name": "Meld Studio",
+    "Category": "Meld Studio",
+    "co.meldstudio.streamdeck.toggle-mute": {
+        "Name": "Track Mute",
+        "Tooltip": "Toggles the mute status of a track."
+    },
+    "co.meldstudio.streamdeck.toggle-layer": {
+        "Name": "Layer Visibility",
+        "Tooltip": "Toggles the visibility of a layer."
+    },
+    "co.meldstudio.streamdeck.show-scene": {
+        "Name": "Show Scene",
+        "Tooltip": "Show a specified scene."
+    },
+    "co.meldstudio.streamdeck.toggle-effect": {
+        "Name": "Effect Visibility",
+        "Tooltip": "Toggles the visibility of an effect."
+    },
+    "co.meldstudio.streamdeck.toggle-record": {
+        "Name": "Record",
+        "Tooltip": "Start or stop a recording."
+    },
+    "co.meldstudio.streamdeck.toggle-stream": {
+        "Name": "Go Live",
+        "Tooltip": "Start or stop a live stream."
+    },
+    "Localization": {
+        "Scene": "Scene",
+        "Layer": "Layer",
+        "Track": "Track",
+        "Effect": "Effect",
+        "Connecting": "Connecting to Meld Studio..."
+    }
+}
