@@ -16,7 +16,7 @@
     },
     "co.meldstudio.streamdeck.toggle-effect": {
         "Name": "Effect Visibility",
-        "Tooltip": "Toggle effect visibility."
+        "Tooltip": "Toggles the visibility of an effect."
     },
     "co.meldstudio.streamdeck.toggle-record": {
         "Name": "Record",
