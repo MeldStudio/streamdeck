@@ -18,7 +18,7 @@
         "Name": "Effect Visibility",
         "Tooltip": "Toggle effect visibility."
     },
-    "co.meldstudio.streamdeck.toggle-recorde": {
+    "co.meldstudio.streamdeck.toggle-record": {
         "Name": "Record",
         "Tooltip": "Start or stop a recording."
     },
@@ -27,5 +27,10 @@
         "Tooltip": "Start or stop a live stream."
     },
     "Localization": {
+        "Scene": "Scene",
+        "Layer": "Layer",
+        "Track": "Track",
+        "Effect": "Effect",
+        "Connecting": "Connecting to Meld Studio..."
     }
 }

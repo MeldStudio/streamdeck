@@ -119,18 +119,18 @@ class ELGSDPlugin {
      * @returns {Promise<void>}
      */
 async loadLocalization(pathPrefix) {
-    if(!pathPrefix) {
-        pathPrefix = this.#data.__folderpath;
-    }
-    // here we save the promise to the JSON-reader result,
-    // which we can later re-use to see, if the strings are already loaded 
-    this.localizationLoaded = this.readJson(`${pathPrefix}${this.language}.json`);
-    const manifest = await this.localizationLoaded;
-    this.localization = manifest['Localization'] ?? null;
-    window.$localizedStrings = this.localization;
-    this.emit('localizationLoaded', this.localization);
+	if (!pathPrefix) {
+		pathPrefix = this.#data.__folderpath;
+	}
+	// here we save the promise to the JSON-reader result,
+	// which we can later re-use to see, if the strings are already loaded
+	this.localizationLoaded = this.readJson(`${pathPrefix}${this.language}.json`);
+	const manifest = await this.localizationLoaded;
+	this.localization = manifest['Localization'] ?? null;
+	window.$localizedStrings = this.localization;
+	this.emit('localizationLoaded', this.localization);
 
-    return this.localization;
+	return this.localization;
 }
 
     /**
