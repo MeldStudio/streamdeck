@@ -4,19 +4,19 @@
   "CategoryIcon": "assets/MeldStudio",
   "Name": "Meld Studio",
   "Icon": "assets/MeldStudio",
-  "Author": "zv1n.fire",
+  "Author": "MeldStudio",
   "CodePath": "app.html",
-  "Description": "Level-up your live stream with Meld Studio with Elgato Stream Deck integration!",
+  "Description": "Control Meld Studio.",
   "URL": "https://streamwithmeld.com",
-  "Version": "0.0.1",
+  "Version": "0.1.0",
   "OS": [
     {
       "Platform": "mac",
-      "MinimumVersion": "10.15"
+      "MinimumVersion": "12.3"
     }
   ],
   "Software": {
-    "MinimumVersion": "5.0"
+    "MinimumVersion": "6.0"
   },
   "Actions": [
     {
