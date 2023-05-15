@@ -106,6 +106,32 @@ class MeldStudioPropertyInspector {
 		$PI.getSettings();
 	}
 
+	initializeText(action, elements) {
+		for (let id of elements) {
+			const el = document.getElementById(id);
+			console.assert(el.id, 'Select element not found');
+			if (!el) continue;
+
+			this.settings[el] = '';
+
+			el.onchange = () => {
+				if (!this.settings) return;
+				this.settings = { ...this.settings, [id]: el.value };
+				$PI.setSettings(this.settings);
+			};
+		}
+
+		$PI.onDidReceiveSettings(action, ({ action, payload }) => {
+			const { settings } = payload;
+			this.settings = settings;
+
+			for (let field of elements) {
+				const dom_field = document.getElementById(field);
+				dom_field.value = settings[field];
+			}
+		});
+	}
+
 	watchConnections(id) {
 		$MS.on('connected', () => {
 			document.getElementById(id).style = 'display: none;';

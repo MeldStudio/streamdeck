@@ -3,15 +3,19 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>co.meldstudio.streamdeck.toggle-mute Property Inspector</title>
+    <title>co.meldstudio.streamdeck.volume-stepper Property Inspector</title>
     <link rel="stylesheet" href="../../libs/css/sdpi.css">
 </head>
 
 <body>
-    <div class="sdpi-toggle-mute sdpi-wrapper">
+    <div class="sdpi-volume-stepper sdpi-wrapper">
         <div class="sdpi-item">
             <div class="sdpi-item-label" data-localize="Track">Track</div>
             <select class="sdpi-item-value select" id="track"></select>
+        </div>
+        <div class="sdpi-item">
+            <div class="sdpi-item-label" data-localize="StepSize">Step Size</div>
+            <input type="number" class="sdpi-item-value" id="stepsize" value="3"/>
         </div>
     
       <div class="sdpi-item" id="loading" style="display: none;">
@@ -33,7 +37,8 @@
     <script>
       $PI.on('connected', () => {
           $MSPI.watchConnections('loading');
-          $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-mute", ["track"]);
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.volume-stepper", ["track"])
+          $MSPI.initializeText("co.meldstudio.streamdeck.volume-stepper", ["stepsize"]);
       });
     </script>
 </body>

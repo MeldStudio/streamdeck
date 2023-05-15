@@ -26,11 +26,22 @@
         "Name": "Go Live",
         "Tooltip": "Start or stop a live stream."
     },
+    "co.meldstudio.streamdeck.volume-stepper": {
+        "Name": "Adjust Volume",
+        "Tooltip": "Adjust the volume of a specified audio track.",
+        "Encoder": {
+            "TriggerDescription": {
+                "Rotate": "Adjust Volume",
+                "Touch": "Mute Track"
+            }
+        }
+    },
     "Localization": {
         "Scene": "Scene",
         "Layer": "Layer",
         "Track": "Track",
         "Effect": "Effect",
+        "StepSize": "Step Size",
         "Connecting": "Connecting to Meld Studio..."
     }
 }

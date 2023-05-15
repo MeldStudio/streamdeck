@@ -26,6 +26,16 @@
         "Name": "Go Live",
         "Tooltip": "Starten oder stoppen Sie einen Livestream."
     },
+    "co.meldstudio.streamdeck.volume-stepper": {
+        "Name": "Adjust Volume",
+        "Tooltip": "Adjust the volume of a specified audio track.",
+        "Encoder": {
+            "TriggerDescription": {
+                "Rotate": "Adjust Volume",
+                "Touch": "Adjust Volume"
+            }
+        }
+    },
     "Localization": {
         "Scene": "Szene",
         "Layer": "Layer",

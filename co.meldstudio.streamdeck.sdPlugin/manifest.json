@@ -36,20 +36,33 @@
       "PropertyInspectorPath": "actions/show-scene/inspector.html"
     },
     {
-      "Icon": "assets/iconAudioTrack",
-      "Name": "Mute Track",
+      "Icon": "assets/audioMute",
+      "Name": "Adjust Volume",
       "States": [
         {
-          "Image": "assets/mutedTrack"
+          "Image": "assets/mutedTrack",
+          "TitleColor": "#FFFFFF"
         },
         {
-          "Image": "assets/unmutedTrack"
+          "Image": "assets/unmutedTrack",
+          "TitleColor": "#FFFFFF"
         }
       ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Mute an audio track!",
-      "UUID": "co.meldstudio.streamdeck.toggle-mute",
-      "PropertyInspectorPath": "actions/toggle-mute/inspector.html"
+      "Controllers": [
+        "Keypad",
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "$B1",
+        "TriggerDescription": {
+          "Rotate": "Adjust Volume",
+          "Touch": "Mute Track",
+          "Push": "Mute Track"
+        }
+      },
+      "Tooltip": "Adjust the volume of a specified audio track.",
+      "UUID": "co.meldstudio.streamdeck.volume-stepper",
+      "PropertyInspectorPath": "actions/volume-stepper/inspector.html"
     },
     {
       "Icon": "assets/iconLayerVisibility",
