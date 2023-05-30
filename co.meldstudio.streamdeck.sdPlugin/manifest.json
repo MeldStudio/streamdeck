@@ -36,7 +36,7 @@
       "PropertyInspectorPath": "actions/show-scene/inspector.html"
     },
     {
-      "Icon": "assets/audioMute",
+      "Icon": "assets/iconAudioTrack",
       "Name": "Adjust Volume",
       "States": [
         {
