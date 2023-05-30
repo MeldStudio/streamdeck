@@ -56,7 +56,7 @@
       "Name": "Adjust Volume",
       "States": [
         {
-          "Image": "assets/unmutedTrack",
+          "Image": "assets/unmutedTrack-gif-preview",
           "TitleColor": "#FFFFFF"
         }
       ],
@@ -67,7 +67,7 @@
         "layout": "$B1",
         "TriggerDescription": {
           "Rotate": "Adjust Volume",
-          "Touch": "Adjust Volume/Mute Track",
+          "Touch": "Adjust Volume",
           "Push": "Mute Track"
         }
       },
