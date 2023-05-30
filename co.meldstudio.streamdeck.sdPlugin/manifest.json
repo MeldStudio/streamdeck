@@ -37,26 +37,37 @@
     },
     {
       "Icon": "assets/iconAudioTrack",
-      "Name": "Adjust Volume",
+      "Name": "Mute Track",
       "States": [
         {
-          "Image": "assets/mutedTrack",
-          "TitleColor": "#FFFFFF"
+          "Image": "assets/mutedTrack"
         },
+        {
+          "Image": "assets/unmutedTrack"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Mute an audio track!",
+      "UUID": "co.meldstudio.streamdeck.toggle-mute",
+      "PropertyInspectorPath": "actions/toggle-mute/inspector.html"
+    },
+    {
+      "Icon": "assets/iconAudioTrack",
+      "Name": "Adjust Volume",
+      "States": [
         {
           "Image": "assets/unmutedTrack",
           "TitleColor": "#FFFFFF"
         }
       ],
       "Controllers": [
-        "Keypad",
         "Encoder"
       ],
       "Encoder": {
         "layout": "$B1",
         "TriggerDescription": {
           "Rotate": "Adjust Volume",
-          "Touch": "Mute Track",
+          "Touch": "Adjust Volume/Mute Track",
           "Push": "Mute Track"
         }
       },
