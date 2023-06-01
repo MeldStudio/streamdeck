@@ -109,7 +109,7 @@ class MeldStudioPropertyInspector {
 	initializeText(action, elements) {
 		for (let id of elements) {
 			const el = document.getElementById(id);
-			console.assert(el.id, 'Select element not found');
+			console.assert(el.id, 'Input element not found');
 			if (!el) continue;
 
 			this.settings[el] = '';
