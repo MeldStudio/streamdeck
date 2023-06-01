@@ -8,7 +8,7 @@
   "CodePath": "app.html",
   "Description": "Control Meld Studio.",
   "URL": "https://streamwithmeld.com",
-  "Version": "0.1.0",
+  "Version": "0.2.0",
   "OS": [
     {
       "Platform": "mac",
@@ -56,7 +56,7 @@
       "Name": "Adjust Volume",
       "States": [
         {
-          "Image": "assets/unmutedTrack-gif-preview",
+          "Image": "assets/iconSpeaker",
           "TitleColor": "#FFFFFF"
         }
       ],
@@ -64,7 +64,7 @@
         "Encoder"
       ],
       "Encoder": {
-        "layout": "$B1",
+        "layout": "$B2",
         "TriggerDescription": {
           "Rotate": "Adjust Volume",
           "Touch": "Adjust Volume",

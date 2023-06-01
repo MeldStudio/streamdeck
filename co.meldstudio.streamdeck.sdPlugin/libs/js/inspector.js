@@ -127,7 +127,12 @@ class MeldStudioPropertyInspector {
 
 			for (let field of elements) {
 				const dom_field = document.getElementById(field);
-				dom_field.value = settings[field];
+				if (settings[field] !== undefined) {
+					dom_field.value = settings[field];
+				} else {
+					// Use the default value specified by the field.
+					this.settings[field] = dom_field.value;
+				}
 			}
 		});
 	}

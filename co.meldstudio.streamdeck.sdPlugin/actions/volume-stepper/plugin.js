@@ -1,5 +1,6 @@
 class VolumeStepper extends MeldStudioPlugin {
   trackInfo = {};
+  unregisterCallbacks = {};
 
   constructor() {
     super("co.meldstudio.streamdeck.volume-stepper");
@@ -18,7 +19,7 @@ class VolumeStepper extends MeldStudioPlugin {
 
       if (!track) return;
 
-      let gain = +stepsize * payload.ticks + info.gain;
+      let gain = +stepsize * payload.ticks + (info?.gain ?? 0.0);
       gain = gain < 0 ? 0 : gain;
       gain = gain > 1 ? 1 : gain;
 
@@ -65,12 +66,17 @@ class VolumeStepper extends MeldStudioPlugin {
 
       if ($MS.ready) {
         this.onReady(context, payload?.settings);
-      }
+      } else {
+        // If we lose connection, we may need to reinitialize.
+        $MS.on("ready", () => {
+          this.onReady(context, payload?.settings);
+        });
 
-      // If we lose connection, we may need to reinitialize.
-      $MS.on("ready", () => {
-        this.onReady(context, payload?.settings);
-      });
+        this.setGainAndMute(context, {
+          gain: 0.0,
+          muted: true,
+        });
+      }
     });
 
     $MS.on("sessionChanged", (session) => {
@@ -87,41 +93,82 @@ class VolumeStepper extends MeldStudioPlugin {
       });
     });
 
-    $MS.on("gainChanged", (trackId, gain, muted) => {
+    $MS.on("gainChanged", ({ trackId, gain, muted }) => {
+      let info = this.trackInfo[trackId];
+      info = { ...info, gain, muted };
+      this.trackInfo[trackId] = info;
+
       this.forAllContexts((context, { track }) => {
         if (!track || trackId != track) return;
-
-        let info = this.trackInfo[track];
-        info = { ...info, gain, muted };
-
         this.setGainAndMute(context, info);
-        this.trackInfo[track] = info;
       });
     });
   }
 
   setGainAndMute(context, { gain, muted, name }) {
+    // meter colors -
+    //   green:   #6DDE92
+    //   orange:  #FB923C
+    //   red:     #F04A4A
+
+    const info = (() => {
+      if (!muted) {
+        if (gain > 0.4) return { icon: "assets/iconAudioTrack" };
+        if (gain > 0.0) return { icon: "assets/audioUnmuted40" };
+      }
+      return { icon: "assets/audioMute" };
+    })();
+
     $SD.setFeedback(context, {
+      ...info,
       title: name ?? "Adjust Volume",
-      icon: muted ? "assets/audioMute.svg" : "assets/iconAudioTrack.svg",
       value: `${parseInt(gain * 100)}%`,
-      indicator: { value: gain * 100, enabled: true },
+      indicator: {
+        value: gain * 100,
+        enabled: true,
+        bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92",
+      },
     });
   }
 
-  connectGain(context, track) {
-    this.trackInfo[track] = { gain: 0.0, muted: false, name: "Adjust Volume" };
+  register(context, track) {
+    console.assert($MS.meld);
+
+    const callbackInfo = this.unregisterCallbacks[context];
+    // Only register once.
+    if (callbackInfo?.track === track) return;
+
+    this.maybeUnregister(context, track);
     $MS.meld.registerTrackObserver(context, track);
 
-    $MS.meld.gainUpdated.connect((track, gain, muted) => {
-      const info = this.trackInfo[track];
-      this.trackInfo[track] = { ...info, gain, muted };
+    this.unregisterCallbacks[context] = {
+      callback: () => {
+        if ($MS.meld) $MS.meld.unregisterTrackObserver(context, track);
+      },
+      track,
+    };
+  }
 
-      this.setGainAndMute(context, this.trackInfo[track]);
-    });
+  maybeUnregister(context) {
+    const callbackInfo = this.unregisterCallbacks[context];
+    if (!callbackInfo) return;
 
-    this.action.onWillDisappear(() => {
-      $MS.meld.unregisterTrackObserver(context, track);
+    callbackInfo.callback();
+    this.unregisterCallbacks[context] = undefined;
+  }
+
+  connectGain(context, track) {
+    this.trackInfo[track] = {
+      gain: 0.0,
+      muted: false,
+      name: $MS.meld ? $MS.meld.session.items[track]?.name  : "Adjust Volume"
+    };
+
+    this.setGainAndMute(context, this.trackInfo[track]);
+    this.register(context, track);
+
+    this.action.onWillDisappear(({ context }) => {
+      this.maybeUnregister(context);
     });
   }
 

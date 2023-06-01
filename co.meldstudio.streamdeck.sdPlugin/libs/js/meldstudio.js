@@ -42,8 +42,8 @@ class MeldStudio {
 					this.emit('isRecordingChanged', this.meld.isRecording);
 				});
 
-				this.meld.gainUpdated.connect((id, gain, mute) => {
-					this.emit('gainChanged', id, gain, mute);
+				this.meld.gainUpdated.connect((trackId, gain, muted) => {
+					this.emit('gainChanged', { trackId, gain, muted });
 				});
 
 				this.ready = true;
