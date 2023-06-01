@@ -13,7 +13,7 @@ class ToggleLayer extends MeldStudioPlugin {
       this.forAllContexts((context, settings) => {
         const { layer } = settings;
         if (!layer) return;
-        if (!session.items[layer])
+        if (!session?.items || !session?.items[layer])
           return $SD.setState(context, 0);
 
         const state = session.items[layer].visible ? 1 : 0;

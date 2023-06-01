@@ -7,8 +7,8 @@
   "Author": "MeldStudio",
   "CodePath": "app.html",
   "Description": "Control Meld Studio.",
-  "URL": "https://streamwithmeld.com",
-  "Version": "0.1.0",
+  "URL": "https://meldstudio.co",
+  "Version": "0.2.0",
   "OS": [
     {
       "Platform": "mac",
@@ -50,6 +50,30 @@
       "Tooltip": "Mute an audio track!",
       "UUID": "co.meldstudio.streamdeck.toggle-mute",
       "PropertyInspectorPath": "actions/toggle-mute/inspector.html"
+    },
+    {
+      "Icon": "assets/iconAudioTrack",
+      "Name": "Adjust Volume",
+      "States": [
+        {
+          "Image": "assets/iconSpeaker",
+          "TitleColor": "#FFFFFF"
+        }
+      ],
+      "Controllers": [
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "$B2",
+        "TriggerDescription": {
+          "Rotate": "Adjust Volume",
+          "Touch": "Adjust Volume",
+          "Push": "Mute Track"
+        }
+      },
+      "Tooltip": "Adjust the volume of a specified audio track.",
+      "UUID": "co.meldstudio.streamdeck.volume-stepper",
+      "PropertyInspectorPath": "actions/volume-stepper/inspector.html"
     },
     {
       "Icon": "assets/iconLayerVisibility",

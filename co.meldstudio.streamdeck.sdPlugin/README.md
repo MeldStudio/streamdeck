@@ -12,8 +12,8 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.1.0
-Brand new support to manage Meld Studio at your fingertips.
+Version 0.2.0
+Now you can fine-tune your audio levels in Meld Studio using your StreamDeck+.
 
 ## Helpful Links
 
@@ -22,7 +22,7 @@ https://meldstudio.co/
 ## Information
 
 Stream Deck 6.0 and later, macOS 12.3 and later.
-Languages: English.
+Languages: English, German
 
 ## Support Links
 
@@ -33,6 +33,12 @@ hi@meldstudio.co
 ------------
 # Change History:
 ------------
+
+## 2023-05-31 (v0.2.0)
+### Changes:
+-----------
+- Added support for volume controls for the StreamDeck+.
+
 
 ## 2023-04-28 (v0.1.0)
 ### Changes:

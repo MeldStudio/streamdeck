@@ -26,6 +26,17 @@
         "Name": "Go Live",
         "Tooltip": "Starten oder stoppen Sie einen Livestream."
     },
+    "co.meldstudio.streamdeck.volume-stepper": {
+        "Name": "Lautstärkeregler",
+        "Tooltip": "Steuern Sie die Lautstärke einer bestimmten Audiospur.",
+        "Encoder": {
+            "TriggerDescription": {
+                "Rotate": "Lautstärkeregler",
+                "Touch": "Lautstärkeregler",
+                "Push": "Spur stumm"
+            }
+        }
+    },
     "Localization": {
         "Scene": "Szene",
         "Layer": "Layer",
