@@ -82,15 +82,15 @@ class VolumeStepper extends MeldStudioPlugin {
     $MS.on("sessionChanged", (session) => {
       this.forAllContexts((context, { track }) => {
         if (!track) return;
-        if (!session.items[track]) return $SD.setState(context, 1);
+        if (!session?.items) return;
+        if (!session?.items[track]) return;
 
         const { name, muted } = session.items[track];
         const state = muted ? 0 : 1;
 
         this.trackInfo[track] = { ...this.trackInfo[track], name, muted };
-        
+
         this.setGainAndMute(context, this.trackInfo[track]);
-        $SD.setState(context, state);
       });
     });
 
@@ -163,11 +163,19 @@ class VolumeStepper extends MeldStudioPlugin {
     this.unregisterCallbacks[context] = undefined;
   }
 
+  getNameForTrack(track) {
+    const defaultName = "Adjust Volume";
+    if (!$MS?.meld?.session?.items) return defaultName;
+
+    const name = $MS.meld.session.items[track]?.name;
+    return name ? name : defaultName;
+  }
+
   connectGain(context, track) {
     this.trackInfo[track] = {
       gain: 0.0,
       muted: false,
-      name: $MS.meld ? $MS.meld.session.items[track]?.name  : "Adjust Volume"
+      name: this.getNameForTrack(track),
     };
 
     this.setGainAndMute(context, this.trackInfo[track]);
