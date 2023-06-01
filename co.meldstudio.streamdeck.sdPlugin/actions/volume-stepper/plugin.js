@@ -88,7 +88,8 @@ class VolumeStepper extends MeldStudioPlugin {
         const state = muted ? 0 : 1;
 
         this.trackInfo[track] = { ...this.trackInfo[track], name, muted };
-
+        
+        this.setGainAndMute(context, this.trackInfo[track]);
         $SD.setState(context, state);
       });
     });
@@ -102,6 +103,11 @@ class VolumeStepper extends MeldStudioPlugin {
         if (!track || trackId != track) return;
         this.setGainAndMute(context, info);
       });
+    });
+
+    $MS.on("closed", () => {
+      // reset all registrations.
+      this.unregisterCallbacks = {};
     });
   }
 
