@@ -27,12 +27,13 @@
         "Tooltip": "Starten oder stoppen Sie einen Livestream."
     },
     "co.meldstudio.streamdeck.volume-stepper": {
-        "Name": "Adjust Volume",
-        "Tooltip": "Adjust the volume of a specified audio track.",
+        "Name": "Lautstärkeregler",
+        "Tooltip": "Steuern Sie die Lautstärke einer bestimmten Audiospur.",
         "Encoder": {
             "TriggerDescription": {
-                "Rotate": "Adjust Volume",
-                "Touch": "Adjust Volume"
+                "Rotate": "Lautstärkeregler",
+                "Touch": "Lautstärkeregler",
+                "Push": "Spur stumm"
             }
         }
     },

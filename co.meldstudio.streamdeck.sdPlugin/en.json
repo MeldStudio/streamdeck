@@ -32,7 +32,8 @@
         "Encoder": {
             "TriggerDescription": {
                 "Rotate": "Adjust Volume",
-                "Touch": "Adjust Volume"
+                "Touch": "Adjust Volume",
+                "Push": "Mute Track"
             }
         }
     },
