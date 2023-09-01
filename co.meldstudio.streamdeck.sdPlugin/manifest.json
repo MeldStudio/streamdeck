@@ -3,7 +3,7 @@
   "Category": "Meld Studio",
   "CategoryIcon": "assets/MeldStudio",
   "Name": "Meld Studio",
-  "Icon": "assets/MeldStudio",
+  "Icon": "plugin",
   "Author": "MeldStudio",
   "CodePath": "app.html",
   "Description": "Control Meld Studio.",
@@ -34,6 +34,19 @@
       "Tooltip": "Change scenes!",
       "UUID": "co.meldstudio.streamdeck.show-scene",
       "PropertyInspectorPath": "actions/show-scene/inspector.html"
+    },
+    {
+      "Icon": "assets/iconScreenshot",
+      "Name": "Take Screenshot",
+      "States": [
+        {
+          "Image": "assets/screenshot"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Take a screenshot!",
+      "UUID": "co.meldstudio.streamdeck.screenshot",
+      "PropertyInspectorPath": "actions/screenshot/inspector.html"
     },
     {
       "Icon": "assets/iconAudioTrack",

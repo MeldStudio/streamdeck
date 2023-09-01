@@ -3,20 +3,12 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>co.meldstudio.streamdeck.show-scene Property Inspector</title>
+    <title>co.meldstudio.streamdeck.screenshot Property Inspector</title>
     <link rel="stylesheet" href="../../libs/css/sdpi.css">
 </head>
 
 <body>
     <div class="sdpi-change-scene sdpi-wrapper">
-      <div class="sdpi-item">
-        <div class="sdpi-item-label" data-localize="Scene">Scene</div>
-        <select class="sdpi-item-value select" id="scene" disabled></select>
-      </div>
-    
-      <div class="sdpi-item" id="loading" style="display: none;">
-        <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
-      </div>
     </div>
 </body>
 
@@ -34,7 +26,6 @@
 <script>
     $PI.on('connected', () => {
       $MSPI.watchConnections('loading');
-      $MSPI.initializeSelection("co.meldstudio.streamdeck.show-scene", ["scene"]);
     });
 </script>
 </html>
