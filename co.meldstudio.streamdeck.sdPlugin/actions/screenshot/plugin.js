@@ -5,7 +5,8 @@ class Screenshot extends MeldStudioPlugin {
     super("co.meldstudio.streamdeck.screenshot");
 
     this.action.onKeyUp(({ action, context, device, event, payload }) => {
-      if ($MS.meld?.sendEvent) $MS.meld.sendEvent("screenshot");
+      if ($MS.meld?.sendEvent)
+        $MS.meld.sendEvent("co.meldstudio.events.screenshot");
     });
   }
 }
