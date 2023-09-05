@@ -1,6 +1,4 @@
 class Screenshot extends MeldStudioPlugin {
-  sceneRequested = null;
-
   constructor() {
     super("co.meldstudio.streamdeck.screenshot");
 
