@@ -13,7 +13,7 @@ And we're not done yet! We are continually working to bring you even more capabi
 ## What's New
 
 Version 0.3.0
-Now you can take screenshots for thumbsnails at the touch of a StreamDeck button.
+Now you can take screenshots for thumbnails at the touch of a StreamDeck button.
 
 ## Helpful Links
 
