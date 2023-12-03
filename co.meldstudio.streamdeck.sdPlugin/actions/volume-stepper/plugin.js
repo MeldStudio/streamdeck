@@ -152,9 +152,8 @@ class VolumeStepper extends MeldStudioPlugin {
       bar_value = gain * 100;
     } else {
       const dB = toDb(gain);
-      volume = `${parseInt(dB)} dB`;
+      volume = (dB == -60.) ? "-inf dB" : `${parseInt(dB)} dB`;
       bar_value = (dB + 60.) / 60.;
-      console.log(bar_value)
     }
 
     const info = (() => {
@@ -165,14 +164,16 @@ class VolumeStepper extends MeldStudioPlugin {
       return { icon: "assets/audioMute" };
     })();
 
+    console.log(bar_value)
+
     $SD.setFeedback(context, {
       ...info,
       title: name ?? "Adjust Volume",
       value: volume,
       indicator: {
-        value: bar_value,
+        value: bar_value * 100.,
         enabled: true,
-        bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92"
+        bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92",
       },
     });
   }
