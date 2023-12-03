@@ -164,8 +164,6 @@ class VolumeStepper extends MeldStudioPlugin {
       return { icon: "assets/audioMute" };
     })();
 
-    console.log(bar_value)
-
     $SD.setFeedback(context, {
       ...info,
       title: name ?? "Adjust Volume",
