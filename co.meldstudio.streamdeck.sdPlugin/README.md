@@ -12,8 +12,8 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.3.0
-Now you can take screenshots for thumbnails at the touch of a button.
+Version 0.4.0
+Switch between staged scenes and transition with the press of a button -- all from the StreamDeck+.
 
 ## Helpful Links
 
@@ -33,6 +33,14 @@ hi@meldstudio.co
 ------------
 # Change History:
 ------------
+
+## 2023-12-05 (v0.4.0)
+### Changes:
+-----------
+- Added support for switching scenes using a dial to the StreamDeck+.
+- Added support for switching volume between percent and dB on the Volume control for StreamDeck+.
+- Added support for monitoring an audio track for all StreamDeck devices.
+
 
 ## 2023-09-01 (v0.3.0)
 ### Changes:

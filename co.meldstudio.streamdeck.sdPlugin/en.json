@@ -41,12 +41,30 @@
             }
         }
     },
+    "co.meldstudio.streamdeck.transition-stepper": {
+        "Name": "Scene Switcher",
+        "Tooltip": "Select a staging scene and trigger a scene transition",
+        "Encoder": {
+            "TriggerDescription": {
+                "Rotate": "Select Staging Scene",
+                "Touch": "Transition to Staging Scene",
+                "Push": "Transition to Staging Scene"
+            }
+        }
+    },
     "Localization": {
         "Scene": "Scene",
         "Layer": "Layer",
         "Track": "Track",
         "Effect": "Effect",
         "StepSize": "Step Size",
-        "Connecting": "Connecting to Meld Studio..."
+        "Connecting": "Connecting to Meld Studio...",
+        "Action": "Action",
+        "Mute": "Mute",
+        "Monitor": "Monitor",
+        "Meter": "Meter Type",
+        "Decibels": "Decibels",
+        "Percent": "Percent",
+        "TransitionStepper": "Scene switcher requires that the radial scene switcher feature be enabled in Meld Studio. For more info, visit the Meld Studio Blog."
     }
 }

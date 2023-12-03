@@ -1,3 +1,19 @@
+function toDb(gain) {
+  let dB = 20. * Math.log10(gain);
+  if (!isFinite(dB)) dB = -60.;
+  return dB;
+}
+
+function toGain(dB) {
+  if (!isFinite(dB) || dB < -60.) dB = -60.;
+  let gain = Math.pow(10., dB / 20.);
+  
+  gain = gain <= 0.001 ? 0 : gain;
+  gain = gain > 1 ? 1 : gain;
+  return gain;
+}
+
+
 class VolumeStepper extends MeldStudioPlugin {
   trackInfo = {};
   unregisterCallbacks = {};
@@ -13,15 +29,24 @@ class VolumeStepper extends MeldStudioPlugin {
     });
 
     this.action.onDialRotate(({ context, payload }) => {
-      const { track, stepsize: stepString } = this.getSettings(context);
-      const stepsize = 0.01 * parseFloat(stepString);
+      const { track, stepsize: stepString, metertype } = this.getSettings(context);
+      let use_percent = (metertype === "percent");
+
+      const stepsize = parseFloat(stepString);
       const info = this.trackInfo[track];
 
       if (!track) return;
 
-      let gain = +stepsize * payload.ticks + (info?.gain ?? 0.0);
-      gain = gain < 0 ? 0 : gain;
-      gain = gain > 1 ? 1 : gain;
+      let offset = +stepsize * payload.ticks
+      let gain = (info?.gain ?? 0.0);
+
+      if (use_percent) {
+        gain += 0.01 * offset; // scale to percent...
+      } else {
+        let dB = toDb(gain);
+        dB += offset;
+        gain = toGain(dB);
+      }
 
       // Store the new gain until the callback fires.
       this.trackInfo[track] = { ...info, gain };
@@ -57,7 +82,7 @@ class VolumeStepper extends MeldStudioPlugin {
 
         if ($MS.meld?.setGain) $MS.meld?.setGain(track, gain);
       } else {
-        if ($MS.meld?.toggleMute) $MS.meld.toggleMute(track);
+        if ($MS.meld?.toggleMonitor) $MS.meld.toggleMonitor(track);
       }
     });
 
@@ -72,25 +97,25 @@ class VolumeStepper extends MeldStudioPlugin {
           this.onReady(context, payload?.settings);
         });
 
-        this.setGainAndMute(context, {
+        this.setGainAndMute(context, payload.settings.metertype, {
           gain: 0.0,
           muted: true,
+          monitoring: false,
         });
       }
     });
 
     $MS.on("sessionChanged", (session) => {
-      this.forAllContexts((context, { track }) => {
+      this.forAllContexts((context, { track, metertype }) => {
         if (!track) return;
         if (!session?.items) return;
         if (!session?.items[track]) return;
 
-        const { name, muted } = session.items[track];
-        const state = muted ? 0 : 1;
+        const { name, muted, monitoring } = session.items[track];
 
-        this.trackInfo[track] = { ...this.trackInfo[track], name, muted };
+        this.trackInfo[track] = { ...this.trackInfo[track], name, muted, monitoring };
 
-        this.setGainAndMute(context, this.trackInfo[track]);
+        this.setGainAndMute(context, metertype, this.trackInfo[track]);
       });
     });
 
@@ -99,9 +124,9 @@ class VolumeStepper extends MeldStudioPlugin {
       info = { ...info, gain, muted };
       this.trackInfo[trackId] = info;
 
-      this.forAllContexts((context, { track }) => {
+      this.forAllContexts((context, { track, metertype }) => {
         if (!track || trackId != track) return;
-        this.setGainAndMute(context, info);
+        this.setGainAndMute(context, metertype, info);
       });
     });
 
@@ -111,11 +136,26 @@ class VolumeStepper extends MeldStudioPlugin {
     });
   }
 
-  setGainAndMute(context, { gain, muted, name }) {
+  setGainAndMute(context, metertype, { gain, muted, name, monitoring }) {
     // meter colors -
     //   green:   #6DDE92
     //   orange:  #FB923C
     //   red:     #F04A4A
+    
+    let use_percent = (metertype === "percent");
+    let volume;
+    let bar_colors;
+    let bar_value;
+    
+    if (use_percent) {
+      volume = `${parseInt(gain * 100)}%`;
+      bar_value = gain * 100;
+    } else {
+      const dB = toDb(gain);
+      volume = `${parseInt(dB)} dB`;
+      bar_value = (dB + 60.) / 60.;
+      console.log(bar_value)
+    }
 
     const info = (() => {
       if (!muted) {
@@ -128,11 +168,11 @@ class VolumeStepper extends MeldStudioPlugin {
     $SD.setFeedback(context, {
       ...info,
       title: name ?? "Adjust Volume",
-      value: `${parseInt(gain * 100)}%`,
+      value: volume,
       indicator: {
-        value: gain * 100,
+        value: bar_value,
         enabled: true,
-        bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92",
+        bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92"
       },
     });
   }
@@ -171,14 +211,14 @@ class VolumeStepper extends MeldStudioPlugin {
     return name ? name : defaultName;
   }
 
-  connectGain(context, track) {
+  connectGain(context, metertype, track) {
     this.trackInfo[track] = {
       gain: 0.0,
       muted: false,
       name: this.getNameForTrack(track),
     };
 
-    this.setGainAndMute(context, this.trackInfo[track]);
+    this.setGainAndMute(context, metertype, this.trackInfo[track]);
     this.register(context, track);
 
     this.action.onWillDisappear(({ context }) => {
@@ -186,9 +226,9 @@ class VolumeStepper extends MeldStudioPlugin {
     });
   }
 
-  onReady(context, { track }) {
+  onReady(context, { track, metertype }) {
     console.assert($MS.ready);
-    if (this.isEncoder(context)) this.connectGain(context, track);
+    if (this.isEncoder(context)) this.connectGain(context, metertype, track);
   }
 }
 

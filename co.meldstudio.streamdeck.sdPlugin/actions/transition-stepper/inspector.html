@@ -3,16 +3,15 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>co.meldstudio.streamdeck.toggle-record Property Inspector</title>
+    <title>co.meldstudio.streamdeck.transition-stepper Property Inspector</title>
     <link rel="stylesheet" href="../../libs/css/sdpi.css">
 </head>
 
 <body>
-    <div class="sdpi-toggle-mute sdpi-wrapper">
-      <div class="sdpi-item" id="loading" style="display: none;">
-        <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
-      </div>
+    <div class="sdpi-transition-stepper sdpi-wrapper">
+      <div class="sdpi-more-info" data-localize="TransitionStepper" onclick="showBlogPost()">TransitionStepper</div>
     </div>
+
     <!-- libs -->
     <script src="../../libs/js/utils.js"></script>
     <script src="../../libs/js/constants.js"></script>
@@ -23,6 +22,12 @@
     <script src="../../libs/js/qwebchannel.js"></script>
     <script src="../../libs/js/meldstudio.js"></script>
     <script src="../../libs/js/inspector.js"></script>
+
+    <script>
+        function showBlogPost() {
+            $PI.openUrl('https://blog.meldstudio.co/re-designing-live-scene-switching-and-transitions/')
+        }
+    </script>
 </body>
 
 </html>

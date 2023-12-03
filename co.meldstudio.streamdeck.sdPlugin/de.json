@@ -41,11 +41,29 @@
             }
         }
     },
+    "co.meldstudio.streamdeck.transition-stepper": {
+        "Name": "Szenenumschalter",
+        "Tooltip": "Wählen Sie eine Bühnenszene aus und lösen Sie einen Szenenübergang aus.",
+        "Encoder": {
+            "TriggerDescription": {
+                "Rotate": "Szenenumschalter",
+                "Touch": "Übergang",
+                "Push": "Übergang"
+            }
+        }
+    },
     "Localization": {
         "Scene": "Szene",
         "Layer": "Layer",
         "Track": "Spur",
         "Effect": "Effekt",
-        "Connecting": "Verbindungsaufbau zu Meld Studio..."
+        "Connecting": "Verbindungsaufbau zu Meld Studio...",
+        "Action": "Aktion",
+        "Mute": "Spur stumm",
+        "Monitor": "Überwachen",
+        "Meter": "Typ des Volumenmessers",
+        "Decibels": "Dezibels",
+        "Percent": "Prozent",
+        "TransitionStepper": "Für den Szenenumschalter muss die radiale Szenenumschalterfunktion in Meld Studio aktiviert sein. Weitere Informationen finden Sie im Meld Studio Blog."
     }
 }

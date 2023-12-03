@@ -13,6 +13,13 @@
             <div class="sdpi-item-label" data-localize="Track">Track</div>
             <select class="sdpi-item-value select" id="track"></select>
         </div>
+        <div class="sdpi-item">
+            <div class="sdpi-item-label" data-localize="Action">Action</div>
+            <select class="sdpi-item-value select" id="action">
+                <option value="mute" data-localize="Mute" selected>Mute</option>
+                <option value="monitor" data-localize="Monitor">Monitor</option>
+            </select>
+        </div>
     
       <div class="sdpi-item" id="loading" style="display: none;">
         <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
@@ -34,6 +41,7 @@
       $PI.on('connected', () => {
           $MSPI.watchConnections('loading');
           $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-mute", ["track"]);
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-mute", ["action"], false);
       });
     </script>
 </body>

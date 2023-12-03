@@ -75,7 +75,7 @@ class ELGSDStreamDeck extends ELGSDApi {
 
 		this.send(context, Events.setState, {
 			payload: {
-				state: 1 - Number(state === 0),
+				state: state || 0,
 			},
 		});
 	}
