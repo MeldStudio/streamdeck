@@ -8,11 +8,15 @@
   "CodePath": "app.html",
   "Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
   "URL": "https://meldstudio.co",
-  "Version": "0.3.0",
+  "Version": "0.3.1",
   "OS": [
     {
       "Platform": "mac",
       "MinimumVersion": "12.3"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
     }
   ],
   "Software": {
