@@ -152,16 +152,16 @@ class VolumeStepper extends MeldStudioPlugin {
       bar_value = gain * 100;
     } else {
       const dB = toDb(gain);
-      volume = (dB == -60.) ? "-inf dB" : `${parseInt(dB)} dB`;
+      volume = (dB == -60.) ? "-∞ dB" : `${parseInt(dB)} dB`;
       bar_value = (dB + 60.) / 60.;
     }
 
     const info = (() => {
       if (!muted) {
-        if (gain > 0.4) return { icon: "assets/iconAudioTrack" };
-        if (gain > 0.0) return { icon: "assets/audioUnmuted40" };
+        if (gain > 0.4) return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack" };
+        if (gain > 0.0) return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioUnmuted40" };
       }
-      return { icon: "assets/audioMute" };
+      return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioMuted" };
     })();
 
     $SD.setFeedback(context, {

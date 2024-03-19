@@ -6,6 +6,10 @@
         "Name": "Spur stumm",
         "Tooltip": "Schaltet den Mute-Status einer Spur um."
     },
+    "co.meldstudio.streamdeck.toggle-monitor": {
+        "Name": "Spur stumm",
+        "Tooltip": "Schaltet den Cue-Status einer Spur um."
+    },
     "co.meldstudio.streamdeck.toggle-layer": {
         "Name": "Layer-Sichtbarkeit",
         "Tooltip": "Schaltet die Sichtbarkeit einer Ebene um."
@@ -59,8 +63,12 @@
         "Effect": "Effekt",
         "Connecting": "Verbindungsaufbau zu Meld Studio...",
         "Action": "Aktion",
+        "Toggle": "Umschalten",
+        "Cue": "Hören",
+        "Unmute": "Stummschaltung aufheben",
+        "Uncue": "Unzuhören",
         "Mute": "Spur stumm",
-        "Monitor": "Überwachen",
+        "Monitor": "Hören",
         "Meter": "Typ des Volumenmessers",
         "Decibels": "Dezibels",
         "Percent": "Prozent",

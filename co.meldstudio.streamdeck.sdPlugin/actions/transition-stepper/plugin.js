@@ -58,7 +58,7 @@ class TransitionStepper extends MeldStudioPlugin {
 
   setSceneName(context, name) {
     $SD.setFeedback(context, {
-      icon: "assets/audioUnmuted40",
+      icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack",
       title: name ?? "Nothing Staged",
     });
   }

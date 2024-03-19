@@ -6,6 +6,10 @@
         "Name": "Track Mute",
         "Tooltip": "Toggles the mute status of a track."
     },
+    "co.meldstudio.streamdeck.toggle-monitor": {
+        "Name": "Track Monitor",
+        "Tooltip": "Toggles the cue status of a track."
+    },
     "co.meldstudio.streamdeck.toggle-layer": {
         "Name": "Layer Visibility",
         "Tooltip": "Toggles the visibility of a layer."
@@ -60,8 +64,11 @@
         "StepSize": "Step Size",
         "Connecting": "Connecting to Meld Studio...",
         "Action": "Action",
+        "Toggle": "Toggle",
         "Mute": "Mute",
-        "Monitor": "Monitor",
+        "Cue": "Cue",
+        "Unmute": "Unmute",
+        "Uncue": "Uncue",
         "Meter": "Meter Type",
         "Decibels": "Decibels",
         "Percent": "Percent",
