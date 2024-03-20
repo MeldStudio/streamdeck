@@ -53,7 +53,7 @@
       "PropertyInspectorPath": "actions/screenshot/inspector.html"
     },
     {
-      "Icon": "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioMute",
+      "Icon": "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack",
       "Name": "Mute Track",
       "States": [
         {
@@ -188,7 +188,7 @@
           "Image": "assets/Go live/Go live/Key Icons/goLive"
         },
         {
-          "Image": "assets/Go live/Go live/Key Icons/goOffline"
+          "Image": "assets/Go live/Go live/Key Icons/goOffiline"
         }
       ],
       "SupportedInMultiActions": true,

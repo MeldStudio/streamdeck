@@ -1,6 +1,8 @@
 function toDb(gain) {
   let dB = 20. * Math.log10(gain);
-  if (!isFinite(dB)) dB = -60.;
+  if (!isFinite(dB)) {
+    dB = -60.;
+  }
   return dB;
 }
 
@@ -86,6 +88,19 @@ class VolumeStepper extends MeldStudioPlugin {
       }
     });
 
+    this.action.onWillAppear(({context, payload}) => {
+      $SD.setFeedback(context, {
+        icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack",
+        title: "",
+        value: "",
+        indicator: {
+          value: 0,
+          enabled: true,
+          bar_bg_c: "0:#666666,1:#666666",
+        },
+      });
+    });
+
     this.action.onDidReceiveSettings(({ context, payload }) => {
       this.setSettings(context, payload?.settings ?? {});
 
@@ -152,7 +167,7 @@ class VolumeStepper extends MeldStudioPlugin {
       bar_value = gain * 100;
     } else {
       const dB = toDb(gain);
-      volume = (dB == -60.) ? "-∞ dB" : `${parseInt(dB)} dB`;
+      volume = (dB === -60.) ? "-∞ dB" : `${parseInt(dB)} dB`;
       bar_value = (dB + 60.) / 60.;
     }
 
@@ -161,7 +176,7 @@ class VolumeStepper extends MeldStudioPlugin {
         if (gain > 0.4) return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack" };
         if (gain > 0.0) return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioUnmuted40" };
       }
-      return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioMuted" };
+      return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioMute" };
     })();
 
     $SD.setFeedback(context, {
