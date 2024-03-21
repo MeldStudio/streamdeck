@@ -113,7 +113,7 @@
       "Name": "Scene Switcher",
       "States": [
         {
-          "Image": "assets/Scene Transition Control/SD Slot/sceneTransition",
+          "Image": "assets/Scene Transition Control/SD Slot/sceneTransitionBlue",
           "TitleColor": "#FFFFFF"
         }
       ],
