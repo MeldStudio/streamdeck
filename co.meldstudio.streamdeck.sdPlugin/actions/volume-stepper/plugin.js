@@ -90,7 +90,7 @@ class VolumeStepper extends MeldStudioPlugin {
 
     this.action.onWillAppear(({context, payload}) => {
       $SD.setFeedback(context, {
-        icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack",
+        icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
         title: "",
         value: "",
         indicator: {
@@ -173,10 +173,10 @@ class VolumeStepper extends MeldStudioPlugin {
 
     const info = (() => {
       if (!muted) {
-        if (gain > 0.4) return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack" };
-        if (gain > 0.0) return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioUnmuted40" };
+        if (gain > 0.4) return { icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack" };
+        if (gain > 0.0) return { icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioUnmuted40" };
       }
-      return { icon: "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioMute" };
+      return { icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioMute" };
     })();
 
     $SD.setFeedback(context, {

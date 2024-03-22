@@ -53,14 +53,14 @@
       "PropertyInspectorPath": "actions/screenshot/inspector.html"
     },
     {
-      "Icon": "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack",
+      "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
       "Name": "Mute Track",
       "States": [
         {
-          "Image": "assets/Audio Track/Mute:Unmute Audio Track/Key Icons/mutedTrack"
+          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/mutedTrack"
         },
         {
-          "Image": "assets/Audio Track/Mute:Unmute Audio Track/Key Icons/audio-unmuted"
+          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/audio-unmuted"
         }
       ],
       "SupportedInMultiActions": true,
@@ -85,11 +85,11 @@
       "PropertyInspectorPath": "actions/toggle-monitor/inspector.html"
     },
     {
-      "Icon": "assets/Audio Track/Mute:Unmute Audio Track/Action Icons/audioTrack",
+      "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
       "Name": "Adjust Volume",
       "States": [
         {
-          "Image": "assets/Audio Track/Mute:Unmute Audio Track/Key Icons/unmuteTrack",
+          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/unmuteTrack",
           "TitleColor": "#FFFFFF"
         }
       ],
@@ -165,14 +165,14 @@
       "PropertyInspectorPath": "actions/toggle-effect/inspector.html"
     },
     {
-      "Icon": "assets/Record/Start:Stop Record/Action Icon/iconRecord",
+      "Icon": "assets/Record/Start_Stop Record/Action Icon/iconRecord",
       "Name": "Record",
       "States": [
         {
-          "Image": "assets/Record/Start:Stop Record/Key Icon/startRecord"
+          "Image": "assets/Record/Start_Stop Record/Key Icon/startRecord"
         },
         {
-          "Image": "assets/Record/Start:Stop Record/Key Icon/stopRecord"
+          "Image": "assets/Record/Start_Stop Record/Key Icon/stopRecord"
         }
       ],
       "SupportedInMultiActions": true,

@@ -13,7 +13,7 @@ class ToggleMute extends MeldStudioPlugin {
       } else {
         // maybe mute
         const action_mute = toggle_action === "mute";
-        const state_mute = muteState[context];
+        const state_mute = this.muteState[context];
 
         // mute | state | action
         // 1    | 0     | 1
@@ -31,7 +31,7 @@ class ToggleMute extends MeldStudioPlugin {
         if (!session.items[track]) return $SD.setState(context, 1);
 
         const muted = session.items[track].muted;
-        muteState[context] = muted;
+        this.muteState[context] = muted;
 
         const state = muted ? 0 : 1;
         $SD.setState(context, state);
