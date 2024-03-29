@@ -1,20 +1,19 @@
 function toDb(gain) {
-  let dB = 20. * Math.log10(gain);
+  let dB = 20 * Math.log10(gain);
   if (!isFinite(dB)) {
-    dB = -60.;
+    dB = -60;
   }
   return dB;
 }
 
 function toGain(dB) {
-  if (!isFinite(dB) || dB < -60.) dB = -60.;
-  let gain = Math.pow(10., dB / 20.);
-  
+  if (!isFinite(dB) || dB < -60) dB = -60;
+  let gain = Math.pow(10, dB / 20);
+
   gain = gain <= 0.001 ? 0 : gain;
   gain = gain > 1 ? 1 : gain;
   return gain;
 }
-
 
 class VolumeStepper extends MeldStudioPlugin {
   trackInfo = {};
@@ -31,19 +30,23 @@ class VolumeStepper extends MeldStudioPlugin {
     });
 
     this.action.onDialRotate(({ context, payload }) => {
-      const { track, stepsize: stepString, metertype } = this.getSettings(context);
-      let use_percent = (metertype === "percent");
+      const { track, stepsize: stepString, metertype } = this.getSettings(
+        context
+      );
+      let use_percent = metertype === "percent";
 
       const stepsize = parseFloat(stepString);
       const info = this.trackInfo[track];
 
       if (!track) return;
 
-      let offset = +stepsize * payload.ticks
-      let gain = (info?.gain ?? 0.0);
+      let offset = +stepsize * payload.ticks;
+      let gain = info?.gain ?? 0.0;
 
       if (use_percent) {
         gain += 0.01 * offset; // scale to percent...
+        gain = Math.min(gain, 1.0);
+        gain = Math.max(gain, 0.0);
       } else {
         let dB = toDb(gain);
         dB += offset;
@@ -88,9 +91,10 @@ class VolumeStepper extends MeldStudioPlugin {
       }
     });
 
-    this.action.onWillAppear(({context, payload}) => {
+    this.action.onWillAppear(({ context, payload }) => {
       $SD.setFeedback(context, {
-        icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
+        icon:
+          "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
         title: "",
         value: "",
         indicator: {
@@ -128,7 +132,12 @@ class VolumeStepper extends MeldStudioPlugin {
 
         const { name, muted, monitoring } = session.items[track];
 
-        this.trackInfo[track] = { ...this.trackInfo[track], name, muted, monitoring };
+        this.trackInfo[track] = {
+          ...this.trackInfo[track],
+          name,
+          muted,
+          monitoring,
+        };
 
         this.setGainAndMute(context, metertype, this.trackInfo[track]);
       });
@@ -156,27 +165,39 @@ class VolumeStepper extends MeldStudioPlugin {
     //   green:   #6DDE92
     //   orange:  #FB923C
     //   red:     #F04A4A
-    
-    let use_percent = (metertype === "percent");
+
+    let use_percent = metertype === "percent";
     let volume;
     let bar_colors;
     let bar_value;
-    
+
     if (use_percent) {
+      console.log(gain)
       volume = `${parseInt(gain * 100)}%`;
-      bar_value = gain * 100;
+      bar_value = gain;
     } else {
       const dB = toDb(gain);
-      volume = (dB === -60.) ? "-∞ dB" : `${parseInt(dB)} dB`;
-      bar_value = (dB + 60.) / 60.;
+      volume = dB === -60 ? "-∞ dB" : `${parseInt(Math.round(dB))} dB`;
+      bar_value = (dB + 60) / 60;
     }
 
     const info = (() => {
       if (!muted) {
-        if (gain > 0.4) return { icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack" };
-        if (gain > 0.0) return { icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioUnmuted40" };
+        if (gain > 0.4)
+          return {
+            icon:
+              "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
+          };
+        if (gain > 0.0)
+          return {
+            icon:
+              "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioUnmuted40",
+          };
       }
-      return { icon: "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioMute" };
+      return {
+        icon:
+          "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioMute",
+      };
     })();
 
     $SD.setFeedback(context, {
@@ -184,7 +205,7 @@ class VolumeStepper extends MeldStudioPlugin {
       title: name ?? "Adjust Volume",
       value: volume,
       indicator: {
-        value: bar_value * 100.,
+        value: bar_value * 100,
         enabled: true,
         bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92",
       },
