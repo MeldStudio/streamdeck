@@ -78,7 +78,8 @@ class MeldStudioPropertyInspector {
 			console.assert(el.id, 'Select element not found');
 			if (!el) continue;
 
-			this.settings[el] = '';
+			if (this.settings[el.id] === undefined)
+				this.settings[el.id] = '';
 
 			el.onchange = () => {
 				if (!this.settings) return;
@@ -95,8 +96,11 @@ class MeldStudioPropertyInspector {
 
 			for (let field of elements) {
 				const dom_field = document.getElementById(field);
+
+				if (settings[field] === undefined)
+					continue;
+
 				dom_field.value = settings[field];
-				if (dom_field.value == 'undefined') dom_field.value = '';
 			}
 
 			if (data_provided)
@@ -112,7 +116,7 @@ class MeldStudioPropertyInspector {
 			console.assert(el.id, 'Input element not found');
 			if (!el) continue;
 
-			this.settings[el] = '';
+			this.settings[el.id] = '';
 
 			el.onchange = () => {
 				if (!this.settings) return;

@@ -3,21 +3,21 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>co.meldstudio.streamdeck.toggle-mute Property Inspector</title>
+    <title>co.meldstudio.streamdeck.toggle-monitor Property Inspector</title>
     <link rel="stylesheet" href="../../libs/css/sdpi.css">
 </head>
 
 <body>
-    <div class="sdpi-toggle-mute sdpi-wrapper">
+    <div class="sdpi-toggle-monitor sdpi-wrapper">
         <div class="sdpi-item">
             <div class="sdpi-item-label" data-localize="Track">Track</div>
             <select class="sdpi-item-value select" id="track"></select>
         </div>
         <div class="sdpi-item">
             <div class="sdpi-item-label" data-localize="Action">Action</div>
-            <select class="sdpi-item-value select" id="action">
-                <option value="toggle" data-localize="Toggle" selected>Toggle</option>
-                <option value="cue" data-localize="Cue" selected>Cue</option>
+            <select class="sdpi-item-value select" id="action" value="toggle">
+                <option value="toggle" data-localize="Toggle">Toggle</option>
+                <option value="cue" data-localize="Cue">Cue</option>
                 <option value="uncue" data-localize="Uncue">Uncue</option>
             </select>
         </div>
@@ -41,7 +41,8 @@
     <script>
       $PI.on('connected', () => {
           $MSPI.watchConnections('loading');
-          $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-mute", ["track"]);
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-monitor", ["track"]);
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-monitor", ["action"], false);
       });
     </script>
 </body>

@@ -20,6 +20,14 @@
         <div class="sdpi-item-label" data-localize="Effect">Effect</div>
         <select class="sdpi-item-value select" id="effect" disabled></select>
       </div>
+      <div class="sdpi-item">
+          <div class="sdpi-item-label" data-localize="Action">Action</div>
+          <select class="sdpi-item-value select" id="action" value="toggle">
+              <option value="toggle" data-localize="Toggle">Toggle</option>
+              <option value="show" data-localize="Show">Show</option>
+              <option value="hide" data-localize="Hide">Hide</option>
+          </select>
+      </div>
     
       <div class="sdpi-item" id="loading" style="display: none;">
         <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
@@ -40,7 +48,8 @@
 
     <script>
       $MS.on('ready', () => {
-		    console.log($MS.meld.session.items)
+		    // console.log($MS.meld.session.items)
+        console.log("Session ready...");
       })
       $PI.on("connected", () => {
         $MSPI.watchConnections('loading');
@@ -49,6 +58,7 @@
           "layer",
           "effect"
         ]);
+        $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-effect", ["action"], false);
       });
     </script>
   </body>

@@ -1,12 +1,37 @@
 class ToggleEffect extends MeldStudioPlugin {
+  effectState = {};
+
+  setLocalState(context, shown) {
+    const state = shown ? 1 : 0;
+    $SD.setState(context, state);
+  }
+
   constructor() {
     super("co.meldstudio.streamdeck.toggle-effect");
 
     this.action.onKeyUp(({ action, context, device, event, payload }) => {
-      const { scene, layer, effect } = this.getSettings(context);
+      const { scene, layer, effect, action: toggle_action } = this.getSettings(
+        context
+      );
       if (!scene || !layer || !effect) return;
 
-      if ($MS.meld?.toggleLayer) $MS.meld.toggleEffect(scene, layer, effect);
+      if (!toggle_action || toggle_action === "toggle") {
+        if ($MS.meld?.toggleEffect) $MS.meld.toggleEffect(scene, layer, effect);
+      } else {
+        const action_show = toggle_action === "show";
+        const state_show = this.effectState[context];
+
+        // show | state | action
+        // 1    | 0     | 1
+        // 0    | 1     | 1
+        // 1    | 1     | 0
+        // 0    | 0     | 0
+
+        const shouldToggle = action_show ^ state_show;
+        if (!shouldToggle) this.setLocalState(context, state_show);
+        if (shouldToggle && $MS.meld?.toggleEffect)
+          $MS.meld.toggleEffect(scene, layer, effect);
+      }
     });
 
     $MS.on("sessionChanged", (session) => {
@@ -15,7 +40,10 @@ class ToggleEffect extends MeldStudioPlugin {
         if (!effect) return;
         if (!session.items[effect]) return $SD.setState(context, 0);
 
-        const state = session.items[effect].enabled ? 1 : 0;
+        const enabled = session.items[effect].enabled;
+        this.effectState[context] = enabled;
+
+        const state = enabled ? 1 : 0;
         $SD.setState(context, state);
       });
     });

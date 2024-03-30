@@ -172,7 +172,6 @@ class VolumeStepper extends MeldStudioPlugin {
     let bar_value;
 
     if (use_percent) {
-      console.log(gain)
       volume = `${parseInt(gain * 100)}%`;
       bar_value = gain;
     } else {

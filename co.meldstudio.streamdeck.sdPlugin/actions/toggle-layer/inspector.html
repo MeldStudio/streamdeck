@@ -20,6 +20,15 @@
       <div class="sdpi-item" id="loading" style="display: none;">
         <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
       </div>
+
+      <div class="sdpi-item">
+          <div class="sdpi-item-label" data-localize="Action">Action</div>
+          <select class="sdpi-item-value select" id="action" value="toggle">
+              <option value="toggle" data-localize="Toggle">Toggle</option>
+              <option value="show" data-localize="Show">Show</option>
+              <option value="hide" data-localize="Hide">Hide</option>
+          </select>
+      </div>
     </div>
 
     <!-- libs -->
@@ -40,6 +49,7 @@
           "scene",
           "layer",
         ]);
+        $MSPI.initializeSelection("co.meldstudio.streamdeck.toggle-layer", ["action"], false);
       });
     </script>
   </body>

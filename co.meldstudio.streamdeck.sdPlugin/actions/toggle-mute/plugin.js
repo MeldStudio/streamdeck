@@ -1,6 +1,11 @@
 class ToggleMute extends MeldStudioPlugin {
   muteState = {}
 
+  setLocalState(context, muted) {
+    const state = muted ? 0 : 1;
+    $SD.setState(context, state);
+  }
+
   constructor() {
     super("co.meldstudio.streamdeck.toggle-mute");
 
@@ -8,10 +13,9 @@ class ToggleMute extends MeldStudioPlugin {
       const { track, action: toggle_action } = this.getSettings(context);
       if (!track) return;
 
-      if (toggle_action === "toggle") {
+      if (!toggle_action || toggle_action === "toggle") {
         if ($MS.meld?.toggleMute) $MS.meld.toggleMute(track);
       } else {
-        // maybe mute
         const action_mute = toggle_action === "mute";
         const state_mute = this.muteState[context];
 
@@ -20,7 +24,10 @@ class ToggleMute extends MeldStudioPlugin {
         // 0    | 1     | 1
         // 1    | 1     | 0
         // 0    | 0     | 0
-        if (action_mute ^ state_mute && $MS.meld?.toggleMute) $MS.meld.toggleMute(track);
+
+        const shouldToggle = action_mute ^ state_mute;
+        if (!shouldToggle) this.setLocalState(context, state_mute);
+        if (shouldToggle && $MS.meld?.toggleMute) $MS.meld.toggleMute(track);
       }
     });
 
@@ -33,11 +40,10 @@ class ToggleMute extends MeldStudioPlugin {
         const muted = session.items[track].muted;
         this.muteState[context] = muted;
 
-        const state = muted ? 0 : 1;
-        $SD.setState(context, state);
+        this.setLocalState(context, muted);
       });
     });
   }
 }
 
-const toggleMate = new ToggleMute();
+const toggleMute = new ToggleMute();

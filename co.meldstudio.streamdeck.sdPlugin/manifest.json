@@ -73,10 +73,10 @@
       "Name": "Cue Track",
       "States": [
         {
-          "Image": "assets/Cue/key icon/cueOn"
+          "Image": "assets/Cue/key icon/cueOff"
         },
         {
-          "Image": "assets/Cue/key icon/cueOff"
+          "Image": "assets/Cue/key icon/cueOn"
         }
       ],
       "SupportedInMultiActions": true,
