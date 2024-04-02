@@ -72,19 +72,21 @@ class MeldStudioPropertyInspector {
 		}
 	}
 
-	initializeSelection(action, elements) {
+	initializeSelection(action, elements, data_provided = true) {
 		for (let id of elements) {
 			const el = document.getElementById(id);
 			console.assert(el.id, 'Select element not found');
 			if (!el) continue;
 
-			this.settings[el] = '';
+			if (this.settings[el.id] === undefined)
+				this.settings[el.id] = '';
 
 			el.onchange = () => {
 				if (!this.settings) return;
 				this.settings = { ...this.settings, [id]: el.value };
 				$PI.setSettings(this.settings);
-				this.updateSelection(elements);
+				if (data_provided)
+					this.updateSelection(elements);
 			};
 		}
 
@@ -92,15 +94,17 @@ class MeldStudioPropertyInspector {
 			const { settings } = payload;
 			this.settings = settings;
 
-			const suffix = action.split('.').pop();
-
 			for (let field of elements) {
 				const dom_field = document.getElementById(field);
+
+				if (settings[field] === undefined)
+					continue;
+
 				dom_field.value = settings[field];
-				if (dom_field.value == 'undefined') dom_field.value = '';
 			}
 
-			this.updateSelection(elements);
+			if (data_provided)
+				this.updateSelection(elements);
 		});
 
 		$PI.getSettings();
@@ -112,7 +116,7 @@ class MeldStudioPropertyInspector {
 			console.assert(el.id, 'Input element not found');
 			if (!el) continue;
 
-			this.settings[el] = '';
+			this.settings[el.id] = '';
 
 			el.onchange = () => {
 				if (!this.settings) return;

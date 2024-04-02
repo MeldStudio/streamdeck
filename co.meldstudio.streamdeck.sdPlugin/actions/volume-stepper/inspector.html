@@ -14,10 +14,18 @@
             <select class="sdpi-item-value select" id="track"></select>
         </div>
         <div class="sdpi-item">
-            <div class="sdpi-item-label" data-localize="StepSize">Step Size</div>
-            <input type="number" class="sdpi-item-value" id="stepsize" value="3"/>
+            <div class="sdpi-item-label" data-localize="StepSize">StepSize</div>
+            <input type="number" class="sdpi-item-value" id="stepsize" value="1"/>
         </div>
     
+        <div class="sdpi-item">
+          <div class="sdpi-item-label" data-localize="Meter">Meter</div>
+          <select type="check" class="sdpi-item-value" id="metertype">
+            <option data-localize="Percent" value="percent">Percent</option>
+            <option data-localize="Decibels" value="db" selected>Decibels</option>
+          </select>
+        </div>
+  
       <div class="sdpi-item" id="loading" style="display: none;">
         <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
       </div>
@@ -37,8 +45,9 @@
     <script>
       $PI.on('connected', () => {
           $MSPI.watchConnections('loading');
-          $MSPI.initializeSelection("co.meldstudio.streamdeck.volume-stepper", ["track"])
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.volume-stepper", ["track"]);
           $MSPI.initializeText("co.meldstudio.streamdeck.volume-stepper", ["stepsize"]);
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.volume-stepper", ["metertype"], false);
       });
     </script>
 </body>

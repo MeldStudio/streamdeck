@@ -1,14 +1,14 @@
 {
   "SDKVersion": 2,
   "Category": "Meld Studio",
-  "CategoryIcon": "assets/MeldStudio",
+  "CategoryIcon": "assets/Category Icon/Meld Studio",
   "Name": "Meld Studio",
-  "Icon": "plugin",
+  "Icon": "assets/AppIcon/meldstudio",
   "Author": "MeldStudio",
   "CodePath": "app.html",
   "Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
   "URL": "https://meldstudio.co",
-  "Version": "0.3.1",
+  "Version": "0.4.0",
   "OS": [
     {
       "Platform": "mac",
@@ -24,14 +24,14 @@
   },
   "Actions": [
     {
-      "Icon": "assets/iconScene",
+      "Icon": "assets/Scenes/Change to Scene/Action Icon/iconScene",
       "Name": "Change Scene",
       "States": [
         {
-          "Image": "assets/sceneOff"
+          "Image": "assets/Scenes/Change to Scene/Key Icon/sceneOff"
         },
         {
-          "Image": "assets/sceneOn"
+          "Image": "assets/Scenes/Change to Scene/Key Icon/sceneOn"
         }
       ],
       "SupportedInMultiActions": true,
@@ -40,11 +40,11 @@
       "PropertyInspectorPath": "actions/show-scene/inspector.html"
     },
     {
-      "Icon": "assets/iconScreenshot",
+      "Icon": "assets/Screenshot/iconScreenshot",
       "Name": "Take Screenshot",
       "States": [
         {
-          "Image": "assets/screenshot"
+          "Image": "assets/Screenshot/screenshot"
         }
       ],
       "SupportedInMultiActions": true,
@@ -53,14 +53,14 @@
       "PropertyInspectorPath": "actions/screenshot/inspector.html"
     },
     {
-      "Icon": "assets/iconAudioTrack",
+      "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
       "Name": "Mute Track",
       "States": [
         {
-          "Image": "assets/mutedTrack"
+          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/mutedTrack"
         },
         {
-          "Image": "assets/unmutedTrack"
+          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/audio-unmuted"
         }
       ],
       "SupportedInMultiActions": true,
@@ -69,11 +69,27 @@
       "PropertyInspectorPath": "actions/toggle-mute/inspector.html"
     },
     {
-      "Icon": "assets/iconAudioTrack",
+      "Icon": "assets/Cue/action icon/cueAudio",
+      "Name": "Cue Track",
+      "States": [
+        {
+          "Image": "assets/Cue/key icon/cueOff"
+        },
+        {
+          "Image": "assets/Cue/key icon/cueOn"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Monitor an audio track!",
+      "UUID": "co.meldstudio.streamdeck.toggle-monitor",
+      "PropertyInspectorPath": "actions/toggle-monitor/inspector.html"
+    },
+    {
+      "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
       "Name": "Adjust Volume",
       "States": [
         {
-          "Image": "assets/iconSpeaker",
+          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/unmuteTrack",
           "TitleColor": "#FFFFFF"
         }
       ],
@@ -93,14 +109,38 @@
       "PropertyInspectorPath": "actions/volume-stepper/inspector.html"
     },
     {
-      "Icon": "assets/iconLayerVisibility",
+      "Icon": "assets/Scene Transition Control/Action Icon/sceneTransition",
+      "Name": "Scene Switcher",
+      "States": [
+        {
+          "Image": "assets/Scene Transition Control/SD Slot/sceneTransitionBlue",
+          "TitleColor": "#FFFFFF"
+        }
+      ],
+      "Controllers": [
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "$X1",
+        "TriggerDescription": {
+          "Rotate": "Select Staging Scene",
+          "Touch": "Select Staging Scene",
+          "Push": "Transition to Staging Scene"
+        }
+      },
+      "Tooltip": "Select a staging scene and trigger a scene transition",
+      "UUID": "co.meldstudio.streamdeck.transition-stepper",
+      "PropertyInspectorPath": "actions/transition-stepper/inspector.html"
+    },
+    {
+      "Icon": "assets/Layers/Layer Visibility/Action Icon/iconLayerVisibility",
       "Name": "Layer Visibility",
       "States": [
         {
-          "Image": "assets/hideLayer"
+          "Image": "assets/Layers/Layer Visibility/Key Icon/layerHide"
         },
         {
-          "Image": "assets/showLayer"
+          "Image": "assets/Layers/Layer Visibility/Key Icon/layerShow"
         }
       ],
       "SupportedInMultiActions": true,
@@ -109,14 +149,14 @@
       "PropertyInspectorPath": "actions/toggle-layer/inspector.html"
     },
     {
-      "Icon": "assets/iconEffectVisibility",
+      "Icon": "assets/Effects/Action Icon/iconEffectVisibility",
       "Name": "Effect Visibility",
       "States": [
         {
-          "Image": "assets/hideEffect"
+          "Image": "assets/Effects/Key Icons/hideEffect"
         },
         {
-          "Image": "assets/showEffect"
+          "Image": "assets/Effects/Key Icons/showEffect"
         }
       ],
       "SupportedInMultiActions": true,
@@ -125,14 +165,14 @@
       "PropertyInspectorPath": "actions/toggle-effect/inspector.html"
     },
     {
-      "Icon": "assets/iconRecord",
+      "Icon": "assets/Record/Start_Stop Record/Action Icon/iconRecord",
       "Name": "Record",
       "States": [
         {
-          "Image": "assets/startRecord"
+          "Image": "assets/Record/Start_Stop Record/Key Icon/startRecord"
         },
         {
-          "Image": "assets/stopRecord"
+          "Image": "assets/Record/Start_Stop Record/Key Icon/stopRecord"
         }
       ],
       "SupportedInMultiActions": true,
@@ -141,14 +181,14 @@
       "PropertyInspectorPath": "actions/toggle-record/inspector.html"
     },
     {
-      "Icon": "assets/iconGoLive",
+      "Icon": "assets/Go live/Go live/Action Icons/goLive",
       "Name": "Go Live",
       "States": [
         {
-          "Image": "assets/goLive"
+          "Image": "assets/Go live/Go live/Key Icons/goLive"
         },
         {
-          "Image": "assets/goOffline"
+          "Image": "assets/Go live/Go live/Key Icons/goOffiline"
         }
       ],
       "SupportedInMultiActions": true,
