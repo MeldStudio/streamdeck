@@ -34,7 +34,7 @@ class ShowScene extends MeldStudioPlugin {
       const item = session.items[scene];
 
       if (!item) return 0;
-      // if (scene == this.sceneRequested) return 1;
+      if (scene == this.sceneRequested) return 1;
       return item.current ? 1 : 0;
     })();
 
