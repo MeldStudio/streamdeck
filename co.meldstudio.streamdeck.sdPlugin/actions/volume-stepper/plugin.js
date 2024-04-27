@@ -1,3 +1,6 @@
+// Copyright (c) 2024 Meld Studio, Inc.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 function toDb(gain) {
   let dB = 20 * Math.log10(gain);
   if (!isFinite(dB)) {
