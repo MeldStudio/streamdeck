@@ -1,3 +1,6 @@
+// Copyright (c) 2024 Meld Studio, Inc.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 class TransitionStepper extends MeldStudioPlugin {
   stagedScene = -1;
   availableScenes = [];
