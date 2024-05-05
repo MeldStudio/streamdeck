@@ -14,7 +14,7 @@ See [Qt's Documentation](https://doc.qt.io/qt-6/qtwebchannel-javascript.html) fo
 
 #### Signals and Slots
 
-Qt's concept of `signals` and `slots` can be likened to JavaScript's event handling mechanisms but with a few key differences. We've provided a quick description below, but more information can be found at [https://doc.qt.io/qt-6/signalsandslots.html].
+Qt's concept of `signals` and `slots` can be likened to JavaScript's event handling mechanisms but with a few key differences. We've provided a quick description below, but more information can be found in [Qt's Signals and Slots Documentation](https://doc.qt.io/qt-6/signalsandslots.html).
 
 ##### Signals
 
@@ -494,4 +494,12 @@ meld.setStagedScene(sceneId);
 
 #### **`showStagedScene()`**
 
-    Switches to the prepared staged scene.
+Switches to the prepared staged scene.
+
+```js
+const sceneId = /* desired scene id */;
+meld.setStagedScene(sceneId);
+
+// note: user may change the Staged scene via other means.
+meld.showStagedScene();
+```
