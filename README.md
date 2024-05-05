@@ -1,4 +1,12 @@
-# Local Development
+# Meld Studio - Stream Deck Plugin
+
+To download the current official release, visit our page on the [Elgato marketplace](https://marketplace.elgato.com/product/meld-studio-737415fa-1957-489d-a62e-1becec068b6e).
+
+## Integrations
+
+If you're interested in developing a software intergration with Meld Studio, you can find our API documentation [here](./WebChannelAPI.md). If you have any questions, please join our [discord](https://discord.gg/ZHpeXEw4) and reach out in [`#support`](https://discord.com/channels/1019227275897614337/1019584582913364101).
+
+## Development
 
 We primarily develop on macOS, so these instructions are tailored to macOS. Feel free to submit a PR to update them for Windows if that's your flavor of OS.
 
@@ -12,7 +20,7 @@ We primarily develop on macOS, so these instructions are tailored to macOS. Feel
 
    See below for debugging information.
 
-# Debugging:
+## Debugging:
 
 1. To enable debugging on macOS, run: `defaults write com.elgato.StreamDeck html_remote_debugging_enabled -bool YES` and restart Stream Deck app.
 2. Navigation to `http://localhost:23654/` in Chrome.
@@ -31,7 +39,7 @@ From here you can refresh the plugin source from the debug console UI.
 
 For more details: https://streamdecklabs.com/debugging-your-javascript-plugin/
 
-# Packaging
+## Packaging
 
 Elgato provides a CLI packaging tool. The files are just zip files, but the tool does some validation before packaging it all up.
 
@@ -43,7 +51,7 @@ $ DistributionTool -b -i co.meldstudio.streamdeck.sdPlugin -o ./
 
 This outputs a file `co.meldstudio.streamdeck.streamDeckPlugin` which can be installed directly.
 
-*Internal notes*:
+### Internal notes:
 
 1) `scripts/build.sh` helper script is provided to generate a versioned plugin file. It will also upload the plugin to the bucket on S3. You must configure your local environment with the correct keys, and you must have the eglato `DistributionTool` in your PATH.
 2) Ensure CloudFront cache for the file gets invalidated after uploading to ensure that the elgato crew downloads the correct plugin file.
