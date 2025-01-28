@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Meld Studio, Inc.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-class Screenshot extends MeldStudioPlugin {
+class Clip extends MeldStudioPlugin {
   constructor() {
     super("co.meldstudio.streamdeck.clip");
 
@@ -12,4 +12,4 @@ class Screenshot extends MeldStudioPlugin {
   }
 }
 
-const screenshot = new Screenshot();
+const clip = new Clip();

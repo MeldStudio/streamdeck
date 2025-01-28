@@ -53,17 +53,17 @@
       "PropertyInspectorPath": "actions/screenshot/inspector.html"
     },
     {
-      "Icon": "assets/clip/iconClip",
+      "Icon": "assets/Clip/action icon/clip-action",
       "Name": "Record Clip",
       "States": [
         {
-          "Image": "assets/clip/clip"
+          "Image": "assets/Clip/key icon/clip"
         }
       ],
       "SupportedInMultiActions": true,
-      "Tooltip": "Take a screenshot!",
-      "UUID": "co.meldstudio.streamdeck.screenshot",
-      "PropertyInspectorPath": "actions/screenshot/inspector.html"
+      "Tooltip": "Record a 90 second clip to disk!",
+      "UUID": "co.meldstudio.streamdeck.clip",
+      "PropertyInspectorPath": "actions/clip/inspector.html"
     },
     {
       "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
