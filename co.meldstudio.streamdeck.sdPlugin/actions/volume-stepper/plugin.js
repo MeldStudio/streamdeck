@@ -62,16 +62,14 @@ class VolumeStepper extends MeldStudioPlugin {
       if ($MS.meld?.setGain) $MS.meld?.setGain(track, gain);
     });
 
-    this.action.onDialPress(({ action, context, device, event, payload }) => {
-      if (!payload.pressed) return;
-
+    this.action.onDialDown(({ context }) => {
       const { track } = this.getSettings(context);
       if (!track) return;
 
       if ($MS.meld?.toggleMute) $MS.meld.toggleMute(track);
     });
 
-    this.action.onTouchTap(({ action, context, device, event, payload }) => {
+    this.action.onTouchTap(({ context, payload}) => {
       if (payload.hold) return;
 
       const { tapPos } = payload;

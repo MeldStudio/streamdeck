@@ -28,10 +28,15 @@ class ToggleMonitor extends MeldStudioPlugin {
         // 1   | 1     | 0
         // 0   | 0     | 0
 
-        const shouldToggle = action_cue ^ state_cue;
-        if (!shouldToggle) this.setLocalState(context, state_cue);
-        if (shouldToggle && $MS.meld?.toggleMonitor)
-          $MS.meld.toggleMonitor(track);
+        if ($MS.meld?.setProperty) {
+          $MS.meld.setProperty(track, "monitoring", action_cue);
+          this.setLocalState(context, action_cue);
+        } else {
+          const shouldToggle = action_cue ^ state_cue;
+          if (!shouldToggle) this.setLocalState(context, state_cue);
+          if (shouldToggle && $MS.meld?.toggleMonitor)
+            $MS.meld.toggleMonitor(track);
+        }
       }
     });
 

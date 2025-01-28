@@ -131,6 +131,13 @@ The `session` property is an object with a single key of `items`. `items` is an 
       "muted": false,
       "name": "Track 1",
       "type": "track"
+    },
+    "DD8FD6181E7560B45D75B79F005B0299": {
+      "index": 0,
+      "name": "Fortnite",
+      "parent": "1DA03C46454676F85DD8CCB1EF3CBF83",
+      "type": "layer",
+      "visible": true
     }
   }
 }
@@ -457,7 +464,38 @@ const trackId = /* desired track id */;
 meld.setGain(trackId, 0.5);
 ```
 
-#### **`sendEvent(event: string)`**
+#### **`sendCommand(command: string)`**
+
+Sends a custom command.
+
+**Parameters**:
+
+| property | type     | description               |
+| -------- | -------- | ------------------------- |
+| command  | `string` | Command to trigger in Meld. |
+
+```js
+meld.sendCommand("meld.screenshot");
+```
+
+**Supported Events**:
+
+| event                            | action                 |
+| -------------------------------- | ---------------------- |
+| `meld.screenshot`                | Takes a screenshot.    |
+| `meld.recordClip`                | Takes a screenshot.    |
+| `meld.startStreamingAction`      | Start streaming.       |
+| `meld.stopStreamingAction`       | Stop streaming.        |
+| `meld.toggleStreamingAction`     | Toggles streaming.     |
+| `meld.startRecordingAction`      | Start recording.       |
+| `meld.stopRecordingAction`       | Stop recording.        |
+| `meld.toggleRecordingAction`     | Toggle recording.      |
+| `meld.toggleVirtualCameraAction` | Toggle virtual camera. |
+
+
+#### **`sendEvent(event: string)` (deprecated)**
+
+**deprecated**: Use `sendCommand` instead.
 
 Sends a custom event.
 

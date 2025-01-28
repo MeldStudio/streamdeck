@@ -3,14 +3,11 @@
 
 class Screenshot extends MeldStudioPlugin {
   constructor() {
-    super("co.meldstudio.streamdeck.screenshot");
+    super("co.meldstudio.streamdeck.clip");
 
     this.action.onKeyUp(({ action, context, device, event, payload }) => {
       if ($MS.meld?.sendCommand)
-        $MS.meld.sendCommand("meld.screenshot");
-      // Keep backword compatibility for now.
-      else if ($MS.meld?.sendEvent)
-        $MS.meld.sendEvent("co.meldstudio.events.screenshot");
+        $MS.meld.sendCommand("meld.recordClip");
     });
   }
 }

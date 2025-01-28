@@ -53,6 +53,19 @@
       "PropertyInspectorPath": "actions/screenshot/inspector.html"
     },
     {
+      "Icon": "assets/clip/iconClip",
+      "Name": "Record Clip",
+      "States": [
+        {
+          "Image": "assets/clip/clip"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Take a screenshot!",
+      "UUID": "co.meldstudio.streamdeck.screenshot",
+      "PropertyInspectorPath": "actions/screenshot/inspector.html"
+    },
+    {
       "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
       "Name": "Mute Track",
       "States": [

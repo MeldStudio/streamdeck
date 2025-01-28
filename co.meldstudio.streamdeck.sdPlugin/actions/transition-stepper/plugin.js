@@ -25,13 +25,12 @@ class TransitionStepper extends MeldStudioPlugin {
       if ($MS.meld?.setStagedScene) $MS.meld?.setStagedScene(item.id);
     });
 
-    this.action.onDialPress(({ action, context, device, event, payload }) => {
-      if (!payload.pressed) return;
+    this.action.onDialDown(() => {
       if (this.stagedScene === -1) return;
       if ($MS.meld?.showStagedScene) $MS.meld.showStagedScene();
     });
 
-    this.action.onTouchTap(({ action, context, device, event, payload }) => {
+    this.action.onTouchTap(({ payload }) => {
       if (!payload.hold) return;
       if (this.stagedScene === -1) return;
       if ($MS.meld?.showStagedScene) $MS.meld.showStagedScene();
