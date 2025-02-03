@@ -43,6 +43,9 @@ function connect() {
       // Optionally store `meld` for direct access to the Meld Studio API.
       const meld = channel.objects.meld;
 
+      // Dump the version. If undefined, the API is version 1.
+      console.log(meld.version);
+
       // -------------------------
       // Example Property Read:
       // This dumps an object containing all Scenes, Layers, Effects, and Audio
@@ -271,21 +274,34 @@ The `session` property is an object with a single key of `items`. `items` is an 
 
 ###### Layer:
 
-| property | type     | description                                    |
-| -------- | -------- | ---------------------------------------------- |
-| type     | `string` | `layer`                                        |
-| parent   | `strign` | Reference Identifier for the parent scene.     |
-| index    | `int`    | Position of the Layer in the Layer list.       |
-| name     | `string` | User specified name of the                     |
-| visible  | `bool`   | Whether the layer is currently being rendered. |
+| property    | type     | description                                    |
+| ----------- | -------- | ---------------------------------------------- |
+| type        | `string` | `layer`                                        |
+| parent      | `strign` | Reference Identifier for the parent scene.     |
+| index       | `int`    | Position of the Layer in the Layer list.       |
+| name        | `string` | User specified name of the                     |
+| visible     | `bool`   | Whether the layer is currently being rendered. |
+| height      | `int`    | Height of the layer in the scene.              |
+| width       | `int`    | Width of the layer in the scene.               |
+| x           | `int`    | Horizontal position of the layer in the scene. |
+| y           | `int`    | Vertical position of the layer in the scene.   |
+| source      | `string` | Path for image source.                         |
+| url         | `string` | URL for browser source.                        |
+| mediaSource | `string` | Path for media source.                         |
 
 ```json
 {
-  "parent": "7C64F74757BCADDEF5C2E2F65B467783",
-  "index": 4,
-  "name": "Fortnite",
-  "type": "layer",
-  "visible": true
+    "height": 281,
+    "index": 0,
+    "name": "Camera Frame",
+    "parent": "05731BDA0C5DE934359C8F7F24CE6C1B",
+    "rotation": 0,
+    "source": "file:///path/to/image.png",
+    "type": "layer",
+    "visible": true,
+    "width": 500,
+    "x": 1354,
+    "y": 156
 }
 ```
 
@@ -615,6 +631,7 @@ meld.showStagedScene();
 
 #### **`setProperty(objectId: string, propertyName: string, value: any)`**
 
+Introduced in Version 2.
 Sets the value of the given property.
 
 *note: setting "parent", "type", and "index" will have no effect.*
