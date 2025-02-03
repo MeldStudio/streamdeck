@@ -612,3 +612,32 @@ meld.setStagedScene(sceneId);
 // note: user may change the Staged scene via other means.
 meld.showStagedScene();
 ```
+
+#### **`setProperty(objectId: string, propertyName: string, value: any)`**
+
+Sets the value of the given property.
+
+*note: setting "parent", "type", and "index" will have no effect.*
+
+```js
+/*
+ * "8DB9CC06AFCA152EA30278380B569751": {
+ *     "height": 281,
+ *     "index": 0,
+ *     "name": "Camera Frame",
+ *     "parent": "05731BDA0C5DE934359C8F7F24CE6C1B",
+ *     "rotation": 0,
+ *     "source": "file:///path/to/image.png",
+ *     "type": "layer",
+ *     "visible": false,
+ *     "width": 500,
+ *     "x": 1354,
+ *     "y": 156
+ * },
+ */
+
+const layerId = "8DB9CC06AFCA152EA30278380B569751";
+
+meld.setProperty(layerId, "name", "Camera Frame (Active)");
+meld.setProperty(layerId, "visible", true);
+```
