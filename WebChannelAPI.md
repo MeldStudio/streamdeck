@@ -277,7 +277,7 @@ The `session` property is an object with a single key of `items`. `items` is an 
 | property    | type     | description                                    |
 | ----------- | -------- | ---------------------------------------------- |
 | type        | `string` | `layer`                                        |
-| parent      | `strign` | Reference Identifier for the parent scene.     |
+| parent      | `string` | Reference Identifier for the parent scene.     |
 | index       | `int`    | Position of the Layer in the Layer list.       |
 | name        | `string` | User specified name of the                     |
 | visible     | `bool`   | Whether the layer is currently being rendered. |
