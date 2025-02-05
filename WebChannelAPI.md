@@ -43,6 +43,9 @@ function connect() {
       // Optionally store `meld` for direct access to the Meld Studio API.
       const meld = channel.objects.meld;
 
+      // Dump the version. If undefined, the API is version 1.
+      console.log(meld.version);
+
       // -------------------------
       // Example Property Read:
       // This dumps an object containing all Scenes, Layers, Effects, and Audio
@@ -99,38 +102,116 @@ The `session` property is an object with a single key of `items`. `items` is an 
 ```json
 {
   "items": {
-    "1DA03C46454676F85DD8CCB1EF3CBF83": {
-      "current": true,
-      "index": 0,
-      "name": "Playing",
-      "staged": false,
-      "type": "scene"
+    "05731BDA0C5DE934359C8F7F24CE6C1B": {
+        "current": true,
+        "index": 1,
+        "name": "Just Chatting",
+        "staged": false,
+        "type": "scene"
     },
-    "3B8EFA69F29E81C290B5BD09CC2EA48E": {
-      "enabled": true,
-      "name": "Corner Pin",
-      "parent": "DD8FD6181E7560B45D75B79F005B0299",
-      "type": "effect"
+    "375F1BB5A322BCC7F60CAAD16EE859D7": {
+        "monitoring": false,
+        "muted": false,
+        "name": "Spoilers",
+        "parent": "89BFE4955144FBD6490ECBB453CA6639",
+        "type": "track"
     },
-    "DD8FD6181E7560B45D75B79F005B0299": {
-      "index": 0,
-      "name": "Fortnite",
-      "parent": "1DA03C46454676F85DD8CCB1EF3CBF83",
-      "type": "layer",
-      "visible": true
+    "6A92BA3C4FCC18180F76D3EFE9167EF0": {
+        "height": 699,
+        "index": 1,
+        "name": "Fortnite",
+        "parent": "9DA5A633182EB0C0804E671B26A1B581",
+        "rotation": 0,
+        "type": "layer",
+        "visible": true,
+        "width": 1303,
+        "x": 265,
+        "y": 132
     },
-    "F1BA59F85C196B9088A06445BE6E5E20": {
-      "monitoring": false,
-      "muted": false,
-      "name": "Fortnite",
-      "parent": "DD8FD6181E7560B45D75B79F005B0299",
-      "type": "track"
+    "7958A12F7C782F392B08A793218AB7E8": {
+        "height": 1080,
+        "index": 2,
+        "isPlaying": true,
+        "mediaSource": "file:///path/to/video.mp4",
+        "name": "Background",
+        "parent": "05731BDA0C5DE934359C8F7F24CE6C1B",
+        "rotation": 0,
+        "type": "layer",
+        "visible": true,
+        "width": 1920,
+        "x": 0,
+        "y": 0
     },
-    "F32F720ACA7B902079E748A33D0113F8": {
-      "monitoring": false,
-      "muted": false,
-      "name": "Track 1",
-      "type": "track"
+    "85DFC4BCD7451D2DB3C55A6E2D9948E2": {
+        "enabled": true,
+        "name": "Glow Styles",
+        "parent": "9F2A72924699F775E0E789C6940141F6",
+        "type": "effect"
+    },
+    "86DF5581538B7A73504368E4F02E242A": {
+        "monitoring": false,
+        "muted": false,
+        "name": "Background",
+        "parent": "7958A12F7C782F392B08A793218AB7E8",
+        "type": "track"
+    },
+    "89BFE4955144FBD6490ECBB453CA6639": {
+        "height": 720,
+        "index": 1,
+        "name": "Spoilers",
+        "parent": "05731BDA0C5DE934359C8F7F24CE6C1B",
+        "rotation": 0,
+        "type": "layer",
+        "url": "https://www.meldstudio.co/browser",
+        "visible": true,
+        "width": 1280,
+        "x": 118,
+        "y": 120
+    },
+    "8DB9CC06AFCA152EA30278380B569751": {
+        "height": 281,
+        "index": 0,
+        "name": "Camera Frame",
+        "parent": "05731BDA0C5DE934359C8F7F24CE6C1B",
+        "rotation": 0,
+        "source": "file:///path/to/image.png",
+        "type": "layer",
+        "visible": true,
+        "width": 500,
+        "x": 1354,
+        "y": 156
+    },
+    "9DA5A633182EB0C0804E671B26A1B581": {
+        "current": false,
+        "index": 0,
+        "name": "Gaming",
+        "staged": false,
+        "type": "scene"
+    },
+    "9F2A72924699F775E0E789C6940141F6": {
+        "height": 297,
+        "index": 0,
+        "name": "Camera",
+        "parent": "9DA5A633182EB0C0804E671B26A1B581",
+        "rotation": 0,
+        "type": "layer",
+        "visible": true,
+        "width": 264,
+        "x": 1436,
+        "y": 683
+    },
+    "D4D3457F8AF5D1F5381A903A8C43BE27": {
+        "monitoring": false,
+        "muted": true,
+        "name": "Microphone",
+        "type": "track"
+    },
+    "EAAF1F3600F53FE362F9CD8194CB1639": {
+        "monitoring": false,
+        "muted": false,
+        "name": "Fortnite",
+        "parent": "6A92BA3C4FCC18180F76D3EFE9167EF0",
+        "type": "track"
     }
   }
 }
@@ -193,21 +274,34 @@ The `session` property is an object with a single key of `items`. `items` is an 
 
 ###### Layer:
 
-| property | type     | description                                    |
-| -------- | -------- | ---------------------------------------------- |
-| type     | `string` | `layer`                                        |
-| parent   | `strign` | Reference Identifier for the parent scene.     |
-| index    | `int`    | Position of the Layer in the Layer list.       |
-| name     | `string` | User specified name of the                     |
-| visible  | `bool`   | Whether the layer is currently being rendered. |
+| property    | type     | description                                    |
+| ----------- | -------- | ---------------------------------------------- |
+| type        | `string` | `layer`                                        |
+| parent      | `string` | Reference Identifier for the parent scene.     |
+| index       | `int`    | Position of the Layer in the Layer list.       |
+| name        | `string` | User specified name of the                     |
+| visible     | `bool`   | Whether the layer is currently being rendered. |
+| height      | `int`    | Height of the layer in the scene.              |
+| width       | `int`    | Width of the layer in the scene.               |
+| x           | `int`    | Horizontal position of the layer in the scene. |
+| y           | `int`    | Vertical position of the layer in the scene.   |
+| source      | `string` | Path for image source.                         |
+| url         | `string` | URL for browser source.                        |
+| mediaSource | `string` | Path for media source.                         |
 
 ```json
 {
-  "parent": "7C64F74757BCADDEF5C2E2F65B467783",
-  "index": 4,
-  "name": "Fortnite",
-  "type": "layer",
-  "visible": true
+    "height": 281,
+    "index": 0,
+    "name": "Camera Frame",
+    "parent": "05731BDA0C5DE934359C8F7F24CE6C1B",
+    "rotation": 0,
+    "source": "file:///path/to/image.png",
+    "type": "layer",
+    "visible": true,
+    "width": 500,
+    "x": 1354,
+    "y": 156
 }
 ```
 
@@ -457,7 +551,38 @@ const trackId = /* desired track id */;
 meld.setGain(trackId, 0.5);
 ```
 
-#### **`sendEvent(event: string)`**
+#### **`sendCommand(command: string)`**
+
+Sends a custom command.
+
+**Parameters**:
+
+| property | type     | description               |
+| -------- | -------- | ------------------------- |
+| command  | `string` | Command to trigger in Meld. |
+
+```js
+meld.sendCommand("meld.screenshot");
+```
+
+**Supported Events**:
+
+| event                            | action                 |
+| -------------------------------- | ---------------------- |
+| `meld.screenshot`                | Takes a screenshot.    |
+| `meld.recordClip`                | Takes a screenshot.    |
+| `meld.startStreamingAction`      | Start streaming.       |
+| `meld.stopStreamingAction`       | Stop streaming.        |
+| `meld.toggleStreamingAction`     | Toggles streaming.     |
+| `meld.startRecordingAction`      | Start recording.       |
+| `meld.stopRecordingAction`       | Stop recording.        |
+| `meld.toggleRecordingAction`     | Toggle recording.      |
+| `meld.toggleVirtualCameraAction` | Toggle virtual camera. |
+
+
+#### **`sendEvent(event: string)` (deprecated)**
+
+**deprecated**: Use `sendCommand` instead.
 
 Sends a custom event.
 
@@ -502,4 +627,34 @@ meld.setStagedScene(sceneId);
 
 // note: user may change the Staged scene via other means.
 meld.showStagedScene();
+```
+
+#### **`setProperty(objectId: string, propertyName: string, value: any)`**
+
+Introduced in Version 2.
+Sets the value of the given property.
+
+*note: setting "parent", "type", and "index" will have no effect.*
+
+```js
+/*
+ * "8DB9CC06AFCA152EA30278380B569751": {
+ *     "height": 281,
+ *     "index": 0,
+ *     "name": "Camera Frame",
+ *     "parent": "05731BDA0C5DE934359C8F7F24CE6C1B",
+ *     "rotation": 0,
+ *     "source": "file:///path/to/image.png",
+ *     "type": "layer",
+ *     "visible": false,
+ *     "width": 500,
+ *     "x": 1354,
+ *     "y": 156
+ * },
+ */
+
+const layerId = "8DB9CC06AFCA152EA30278380B569751";
+
+meld.setProperty(layerId, "name", "Camera Frame (Active)");
+meld.setProperty(layerId, "visible", true);
 ```

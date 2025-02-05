@@ -161,14 +161,14 @@ class ELGSDAction {
 	}
 
 	/**
-	 * Registers a callback function for the onDialPress event, which fires when a SD+ dial was pressed or released
+	 * Registers a callback function for the onDialDown event, which fires when a SD+ dial was pressed or released
 	 * @param {function} fn
 	 */
-	onDialPress(fn) {
+	onDialDown(fn) {
 		if (!fn) {
-			console.error('A callback function for the onDialPress event is required for onDialPress.');
+			console.error('A callback function for the onDialDown event is required for onDialDown.');
 		}
-		this.on(`${this.UUID}.${Events.dialPress}`, (jsn) => fn(jsn));
+		this.on(`${this.UUID}.${Events.dialDown}`, (jsn) => fn(jsn));
 		return this;
 	}
 

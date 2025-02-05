@@ -22,6 +22,10 @@
         "Name": "Screenshot",
         "Tooltip": "Take a screenshot of your livestream."
     },
+    "co.meldstudio.streamdeck.clip": {
+        "Name": "Clip",
+        "Tooltip": "Create a clip of the last 90 seconds."
+    },
     "co.meldstudio.streamdeck.toggle-effect": {
         "Name": "Effect Visibility",
         "Tooltip": "Toggles the visibility of an effect."
@@ -72,6 +76,7 @@
         "Meter": "Meter Type",
         "Decibels": "Decibels",
         "Percent": "Percent",
+        "Clip": "Clip",
         "TransitionStepper": "Scene switcher requires that the radial scene switcher feature be enabled in Meld Studio. For more info, visit the Meld Studio Blog."
     }
 }

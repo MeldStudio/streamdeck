@@ -12,11 +12,10 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.4.0
-Switch between staged scenes and transition with the press of a button -- all from the StreamDeck+.
-Switch between Percent and Decibel volume meters in the Adjust Volume dials.
-Added Monitor key to allow users to monitor tracks from the StreamDeck.
-Added mode selection for Mute, Monitor, Layer and Effects keys to switch between settings a specific state or toggling states.
+Version 0.5.0
+Add Clip action for clipping the last 90 seconds into recording.
+Fix for dial press on the Stream Deck+.
+Fix for mute/cue responsiveness for respective actions.
 
 ## Helpful Links
 
@@ -32,10 +31,16 @@ Languages: English, German
 hi@meldstudio.co 
 
 
-
 ------------
 # Change History:
 ------------
+
+## 2025-01-30 (v0.5.0)
+### Changes:
+-----------
+- Added support for Clip action.
+- Fixup for several user reported bugs.
+
 
 ## 2023-12-05 (v0.4.0)
 ### Changes:

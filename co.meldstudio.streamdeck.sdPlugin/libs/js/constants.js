@@ -58,7 +58,7 @@ const Events = {
 	logMessage: 'logMessage',
 	switchToProfile: 'switchToProfile',
 	dialRotate: 'dialRotate',
-	dialPress: 'dialPress',
+	dialDown: 'dialDown',
 	touchTap: 'touchTap',
 	setFeedback: 'setFeedback',
 	setFeedbackLayout: 'setFeedbackLayout',

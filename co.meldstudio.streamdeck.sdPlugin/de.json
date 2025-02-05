@@ -22,6 +22,10 @@
         "Name": "Screenshot",
         "Tooltip": "Machen Sie einen Screenshot Ihres Livestreams."
     },
+    "co.meldstudio.streamdeck.clip": {
+        "Name": "Clip",
+        "Tooltip": "Erstellen Sie einen Clip der letzten 90 Sekunden."
+    },
     "co.meldstudio.streamdeck.toggle-effect": {
         "Name": "Sichtbarkeit des Effekts",
         "Tooltip": "Sichtbarkeit des Effekts umschalten."
@@ -72,6 +76,7 @@
         "Meter": "Typ des Volumenmessers",
         "Decibels": "Dezibels",
         "Percent": "Prozent",
+        "Clip": "Clip",
         "TransitionStepper": "Für den Szenenumschalter muss die radiale Szenenumschalterfunktion in Meld Studio aktiviert sein. Weitere Informationen finden Sie im Meld Studio Blog."
     }
 }
