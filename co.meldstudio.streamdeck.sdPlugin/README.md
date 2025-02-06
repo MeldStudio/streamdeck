@@ -12,10 +12,10 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.5.0
+Version 0.5.0.1
 Add Clip action for clipping the last 90 seconds into recording.
 Fix for dial press on the Stream Deck+.
-Fix for mute/cue responsiveness for respective actions.
+Fix for mute/cue responsiveness issues.
 
 ## Helpful Links
 
@@ -35,14 +35,14 @@ hi@meldstudio.co
 # Change History:
 ------------
 
-## 2025-01-30 (v0.5.0)
+## 2025-01-30 (v0.5.0.0)
 ### Changes:
 -----------
 - Added support for Clip action.
 - Fixup for several user reported bugs.
 
 
-## 2023-12-05 (v0.4.0)
+## 2023-12-05 (v0.4.0.0)
 ### Changes:
 -----------
 - Added support for switching scenes using a dial to the StreamDeck+.
@@ -51,19 +51,19 @@ hi@meldstudio.co
 - Added support for setting a specific state to set for Mute, Monitor, Layer, and Effects keys.
 
 
-## 2023-09-01 (v0.3.0)
+## 2023-09-01 (v0.3.0.0)
 ### Changes:
 -----------
 - Added support for taking screenshots in MeldStudio with the StreamDeck.
 
 
-## 2023-05-31 (v0.2.0)
+## 2023-05-31 (v0.2.0.0)
 ### Changes:
 -----------
 - Added support for volume controls for the StreamDeck+.
 
 
-## 2023-04-28 (v0.1.0)
+## 2023-04-28 (v0.1.0.0)
 ### Changes:
 -----------
 - Initial implementation of 6 core features (Scene Selection, Layer Visibility, Effect Visibility, Mute Audio, Stream, and Record).

@@ -1,213 +1,214 @@
 {
-  "SDKVersion": 2,
-  "Category": "Meld Studio",
-  "CategoryIcon": "assets/Category Icon/Meld Studio",
-  "Name": "Meld Studio",
-  "Icon": "assets/AppIcon/meldstudio",
-  "Author": "MeldStudio",
-  "CodePath": "app.html",
-  "Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
-  "URL": "https://meldstudio.co",
-  "Version": "0.5.0",
-  "OS": [
-    {
-      "Platform": "mac",
-      "MinimumVersion": "12.3"
-    },
-    {
-      "Platform": "windows",
-      "MinimumVersion": "10"
-    }
-  ],
-  "Software": {
-    "MinimumVersion": "6.0"
-  },
-  "Actions": [
-    {
-      "Icon": "assets/Scenes/Change to Scene/Action Icon/iconScene",
-      "Name": "Change Scene",
-      "States": [
-        {
-          "Image": "assets/Scenes/Change to Scene/Key Icon/sceneOff"
-        },
-        {
-          "Image": "assets/Scenes/Change to Scene/Key Icon/sceneOn"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Change scenes!",
-      "UUID": "co.meldstudio.streamdeck.show-scene",
-      "PropertyInspectorPath": "actions/show-scene/inspector.html"
-    },
-    {
-      "Icon": "assets/Screenshot/iconScreenshot",
-      "Name": "Take Screenshot",
-      "States": [
-        {
-          "Image": "assets/Screenshot/screenshot"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Take a screenshot!",
-      "UUID": "co.meldstudio.streamdeck.screenshot",
-      "PropertyInspectorPath": "actions/screenshot/inspector.html"
-    },
-    {
-      "Icon": "assets/Clip/action icon/clip-action",
-      "Name": "Record Clip",
-      "States": [
-        {
-          "Image": "assets/Clip/key icon/clip"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Record a 90 second clip to disk!",
-      "UUID": "co.meldstudio.streamdeck.clip",
-      "PropertyInspectorPath": "actions/clip/inspector.html"
-    },
-    {
-      "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
-      "Name": "Mute Track",
-      "States": [
-        {
-          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/mutedTrack"
-        },
-        {
-          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/audio-unmuted"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Mute an audio track!",
-      "UUID": "co.meldstudio.streamdeck.toggle-mute",
-      "PropertyInspectorPath": "actions/toggle-mute/inspector.html"
-    },
-    {
-      "Icon": "assets/Cue/action icon/cueAudio",
-      "Name": "Cue Track",
-      "States": [
-        {
-          "Image": "assets/Cue/key icon/cueOff"
-        },
-        {
-          "Image": "assets/Cue/key icon/cueOn"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Monitor an audio track!",
-      "UUID": "co.meldstudio.streamdeck.toggle-monitor",
-      "PropertyInspectorPath": "actions/toggle-monitor/inspector.html"
-    },
-    {
-      "Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
-      "Name": "Adjust Volume",
-      "States": [
-        {
-          "Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/unmuteTrack",
-          "TitleColor": "#FFFFFF"
-        }
-      ],
-      "Controllers": [
-        "Encoder"
-      ],
-      "Encoder": {
-        "layout": "$B2",
-        "TriggerDescription": {
-          "Rotate": "Adjust Volume",
-          "Touch": "Adjust Volume",
-          "Push": "Mute Track"
-        }
-      },
-      "Tooltip": "Adjust the volume of a specified audio track.",
-      "UUID": "co.meldstudio.streamdeck.volume-stepper",
-      "PropertyInspectorPath": "actions/volume-stepper/inspector.html"
-    },
-    {
-      "Icon": "assets/Scene Transition Control/Action Icon/sceneTransition",
-      "Name": "Scene Switcher",
-      "States": [
-        {
-          "Image": "assets/Scene Transition Control/SD Slot/sceneTransitionBlue",
-          "TitleColor": "#FFFFFF"
-        }
-      ],
-      "Controllers": [
-        "Encoder"
-      ],
-      "Encoder": {
-        "layout": "$X1",
-        "TriggerDescription": {
-          "Rotate": "Select Staging Scene",
-          "Touch": "Select Staging Scene",
-          "Push": "Transition to Staging Scene"
-        }
-      },
-      "Tooltip": "Select a staging scene and trigger a scene transition",
-      "UUID": "co.meldstudio.streamdeck.transition-stepper",
-      "PropertyInspectorPath": "actions/transition-stepper/inspector.html"
-    },
-    {
-      "Icon": "assets/Layers/Layer Visibility/Action Icon/iconLayerVisibility",
-      "Name": "Layer Visibility",
-      "States": [
-        {
-          "Image": "assets/Layers/Layer Visibility/Key Icon/layerHide"
-        },
-        {
-          "Image": "assets/Layers/Layer Visibility/Key Icon/layerShow"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Toggle layer visibility!",
-      "UUID": "co.meldstudio.streamdeck.toggle-layer",
-      "PropertyInspectorPath": "actions/toggle-layer/inspector.html"
-    },
-    {
-      "Icon": "assets/Effects/Action Icon/iconEffectVisibility",
-      "Name": "Effect Visibility",
-      "States": [
-        {
-          "Image": "assets/Effects/Key Icons/hideEffect"
-        },
-        {
-          "Image": "assets/Effects/Key Icons/showEffect"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Toggle effect visibility!",
-      "UUID": "co.meldstudio.streamdeck.toggle-effect",
-      "PropertyInspectorPath": "actions/toggle-effect/inspector.html"
-    },
-    {
-      "Icon": "assets/Record/Start_Stop Record/Action Icon/iconRecord",
-      "Name": "Record",
-      "States": [
-        {
-          "Image": "assets/Record/Start_Stop Record/Key Icon/startRecord"
-        },
-        {
-          "Image": "assets/Record/Start_Stop Record/Key Icon/stopRecord"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Start or stop recording.",
-      "UUID": "co.meldstudio.streamdeck.toggle-record",
-      "PropertyInspectorPath": "actions/toggle-record/inspector.html"
-    },
-    {
-      "Icon": "assets/Go live/Go live/Action Icons/goLive",
-      "Name": "Go Live",
-      "States": [
-        {
-          "Image": "assets/Go live/Go live/Key Icons/goLive"
-        },
-        {
-          "Image": "assets/Go live/Go live/Key Icons/goOffiline"
-        }
-      ],
-      "SupportedInMultiActions": true,
-      "Tooltip": "Go Live or go offline.",
-      "UUID": "co.meldstudio.streamdeck.toggle-stream",
-      "PropertyInspectorPath": "actions/toggle-stream/inspector.html"
-    }
-  ]
+	"SDKVersion": 2,
+	"Category": "Meld Studio",
+	"CategoryIcon": "assets/Category Icon/Meld Studio",
+	"Name": "Meld Studio",
+	"Icon": "assets/AppIcon/meldstudio",
+	"Author": "MeldStudio",
+	"CodePath": "app.html",
+	"Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
+	"URL": "https://meldstudio.co",
+	"Version": "0.5.0.1",
+	"UUID": "co.meldstudio.streamdeck",
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12.3"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Software": {
+		"MinimumVersion": "6.4"
+	},
+	"Actions": [
+		{
+			"Icon": "assets/Scenes/Change to Scene/Action Icon/iconScene",
+			"Name": "Change Scene",
+			"States": [
+				{
+					"Image": "assets/Scenes/Change to Scene/Key Icon/sceneOff"
+				},
+				{
+					"Image": "assets/Scenes/Change to Scene/Key Icon/sceneOn"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Change scenes!",
+			"UUID": "co.meldstudio.streamdeck.show-scene",
+			"PropertyInspectorPath": "actions/show-scene/inspector.html"
+		},
+		{
+			"Icon": "assets/Screenshot/iconScreenshot",
+			"Name": "Take Screenshot",
+			"States": [
+				{
+					"Image": "assets/Screenshot/screenshot"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Take a screenshot!",
+			"UUID": "co.meldstudio.streamdeck.screenshot",
+			"PropertyInspectorPath": "actions/screenshot/inspector.html"
+		},
+		{
+			"Icon": "assets/Clip/action icon/clip-action",
+			"Name": "Record Clip",
+			"States": [
+				{
+					"Image": "assets/Clip/key icon/clip"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Record a 90 second clip to disk!",
+			"UUID": "co.meldstudio.streamdeck.clip",
+			"PropertyInspectorPath": "actions/clip/inspector.html"
+		},
+		{
+			"Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
+			"Name": "Mute Track",
+			"States": [
+				{
+					"Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/mutedTrack"
+				},
+				{
+					"Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/audio-unmuted"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Mute an audio track!",
+			"UUID": "co.meldstudio.streamdeck.toggle-mute",
+			"PropertyInspectorPath": "actions/toggle-mute/inspector.html"
+		},
+		{
+			"Icon": "assets/Cue/action icon/cueAudio",
+			"Name": "Cue Track",
+			"States": [
+				{
+					"Image": "assets/Cue/key icon/cueOff"
+				},
+				{
+					"Image": "assets/Cue/key icon/cueOn"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Monitor an audio track!",
+			"UUID": "co.meldstudio.streamdeck.toggle-monitor",
+			"PropertyInspectorPath": "actions/toggle-monitor/inspector.html"
+		},
+		{
+			"Icon": "assets/Audio Track/Mute_Unmute Audio Track/Action Icons/audioTrack",
+			"Name": "Adjust Volume",
+			"States": [
+				{
+					"Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/unmuteTrack",
+					"TitleColor": "#FFFFFF"
+				}
+			],
+			"Controllers": [
+				"Encoder"
+			],
+			"Encoder": {
+				"layout": "$B2",
+				"TriggerDescription": {
+					"Rotate": "Adjust Volume",
+					"Touch": "Adjust Volume",
+					"Push": "Mute Track"
+				}
+			},
+			"Tooltip": "Adjust the volume of a specified audio track.",
+			"UUID": "co.meldstudio.streamdeck.volume-stepper",
+			"PropertyInspectorPath": "actions/volume-stepper/inspector.html"
+		},
+		{
+			"Icon": "assets/Scene Transition Control/Action Icon/sceneTransition",
+			"Name": "Scene Switcher",
+			"States": [
+				{
+					"Image": "assets/Scene Transition Control/SD Slot/sceneTransitionBlue",
+					"TitleColor": "#FFFFFF"
+				}
+			],
+			"Controllers": [
+				"Encoder"
+			],
+			"Encoder": {
+				"layout": "$X1",
+				"TriggerDescription": {
+					"Rotate": "Select Staging Scene",
+					"Touch": "Select Staging Scene",
+					"Push": "Transition to Staging Scene"
+				}
+			},
+			"Tooltip": "Select a staging scene and trigger a scene transition",
+			"UUID": "co.meldstudio.streamdeck.transition-stepper",
+			"PropertyInspectorPath": "actions/transition-stepper/inspector.html"
+		},
+		{
+			"Icon": "assets/Layers/Layer Visibility/Action Icon/iconLayerVisibility",
+			"Name": "Layer Visibility",
+			"States": [
+				{
+					"Image": "assets/Layers/Layer Visibility/Key Icon/layerHide"
+				},
+				{
+					"Image": "assets/Layers/Layer Visibility/Key Icon/layerShow"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Toggle layer visibility!",
+			"UUID": "co.meldstudio.streamdeck.toggle-layer",
+			"PropertyInspectorPath": "actions/toggle-layer/inspector.html"
+		},
+		{
+			"Icon": "assets/Effects/Action Icon/iconEffectVisibility",
+			"Name": "Effect Visibility",
+			"States": [
+				{
+					"Image": "assets/Effects/Key Icons/hideEffect"
+				},
+				{
+					"Image": "assets/Effects/Key Icons/showEffect"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Toggle effect visibility!",
+			"UUID": "co.meldstudio.streamdeck.toggle-effect",
+			"PropertyInspectorPath": "actions/toggle-effect/inspector.html"
+		},
+		{
+			"Icon": "assets/Record/Start_Stop Record/Action Icon/iconRecord",
+			"Name": "Record",
+			"States": [
+				{
+					"Image": "assets/Record/Start_Stop Record/Key Icon/startRecord"
+				},
+				{
+					"Image": "assets/Record/Start_Stop Record/Key Icon/stopRecord"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Start or stop recording.",
+			"UUID": "co.meldstudio.streamdeck.toggle-record",
+			"PropertyInspectorPath": "actions/toggle-record/inspector.html"
+		},
+		{
+			"Icon": "assets/Go live/Go live/Action Icons/goLive",
+			"Name": "Go Live",
+			"States": [
+				{
+					"Image": "assets/Go live/Go live/Key Icons/goLive"
+				},
+				{
+					"Image": "assets/Go live/Go live/Key Icons/goOffiline"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Go Live or go offline.",
+			"UUID": "co.meldstudio.streamdeck.toggle-stream",
+			"PropertyInspectorPath": "actions/toggle-stream/inspector.html"
+		}
+	]
 }
