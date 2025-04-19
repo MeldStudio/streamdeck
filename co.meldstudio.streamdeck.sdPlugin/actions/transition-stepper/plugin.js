@@ -43,6 +43,7 @@ class TransitionStepper extends MeldStudioPlugin {
         const item = session?.items[key];
 
         if (item?.type !== "scene") continue;
+        if (item?.name.indexOf("(linked)") !== -1) continue;
 
         if (item?.staged)
           this.stagedScene = item.index;
