@@ -39,7 +39,7 @@
     $PI.on('connected', () => {
       $MSPI.watchConnections('loading');
       $MSPI.initializeSelection("co.meldstudio.streamdeck.show-scene", ["scene"], true, (type, item) => {
-        return item.name.indexOf("(linked)") === -1;
+        return !item.vertical;
       });
     });
 </script>
