@@ -39,7 +39,7 @@ hi@meldstudio.co
 - Use new setMuted method to avoid depreciated setProperty call on "muted" AudioTrack properties.
 
 
-## 2025-01-30 (v0.5.0.0)
+## 2025-01-30 (v0.5.0.1)
 ### Changes:
 -----------
 - Added support for Clip action.
