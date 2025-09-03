@@ -12,10 +12,8 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.5.0.1
-Add Clip action for clipping the last 90 seconds into recording.
-Fix for dial press on the Stream Deck+.
-Fix for mute/cue responsiveness issues.
+Version 0.5.1.0
+- Use new setMuted method to avoid depreciated setProperty call on "muted" AudioTrack properties.
 
 ## Helpful Links
 
@@ -35,7 +33,13 @@ hi@meldstudio.co
 # Change History:
 ------------
 
-## 2025-01-30 (v0.5.0.0)
+## 2025-07-11 (v0.5.1.0)
+### Changes:
+-----------
+- Use new setMuted method to avoid depreciated setProperty call on "muted" AudioTrack properties.
+
+
+## 2025-01-30 (v0.5.0.1)
 ### Changes:
 -----------
 - Added support for Clip action.

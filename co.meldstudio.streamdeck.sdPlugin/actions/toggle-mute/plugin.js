@@ -28,7 +28,10 @@ class ToggleMute extends MeldStudioPlugin {
         // 1    | 1     | 0
         // 0    | 0     | 0
 
-        if ($MS.meld?.setProperty) {
+        if ($MS.meld?.setMuted) {
+          $MS.meld.setMuted(track, action_mute);
+          this.setLocalState(context, action_mute);
+        } else if ($MS.meld?.setProperty) {
           $MS.meld.setProperty(track, "muted", action_mute);
           this.setLocalState(context, action_mute);
         } else {
