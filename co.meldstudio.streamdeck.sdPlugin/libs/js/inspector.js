@@ -2,26 +2,20 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 class MeldStudioPropertyInspector {
-settings = {}
-
-
-
+	settings = {}
+	callbacks = {}
 
 	createOption (opt) {
 		const item = document.createElement('option')
 
-item.innerHTML = opt.text
-item.value = opt.value
-item.selected = opt.selected
-
+		item.innerHTML = opt.text
+		item.value = opt.value
+		item.selected = opt.selected
 
 		return item
 	}
 
-// Get all items of a specific type.
-
-
-
+	// Get all items of a specific type.
 
 	getItemsByType (type, currentValue, parent, keep_filter) {
 		const items = $MS.meld?.session?.items ?? {}
@@ -35,10 +29,7 @@ item.selected = opt.selected
 		]
 
 		for (let key in items) {
-const item = items[key]
-
-
-
+			const item = items[key]
 
 			if (keep_filter && !keep_filter(type, item)) continue
 
@@ -59,42 +50,32 @@ const item = items[key]
 		return this.settings[key] ?? ''
 	}
 
-// Iterators over the items in the session and filters down
-// each pass to the current type, filtered by the previous value.
-
-
-
+	// Iterates over the items in the session and filters down
+	// each pass to the current type, filtered by the keep_filter function is provided.
 
 	updateSelection (elements, keep_filter) {
+		if (!this.callbacks[elements]) {
+			this.callbacks[elements] = $MS.on('sessionChanged', session => {
+				this.updateSelection(elements)
+			})
+		}
+
 		if (!$MS.meld) {
 			$MS.on('ready', () => {
 				this.updateSelection(elements)
 			})
-			$MS.on('sessionChanged', session => {
-				console.log(elements, session)
-				this.updateSelection(elements)
-			})
 			return
 		}
-console.log(elements)
-
-
-
 
 		let last = ''
 		for (let elid of elements) {
-const value = this.getValue(elid)
-const element = document.getElementById(elid)
+			const value = this.getValue(elid)
+			const element = document.getElementById(elid)
 
+			let available = this.getItemsByType(elid, value, last, keep_filter)
 
-
-console.log(elid)
-
-let available = this.getItemsByType(elid, value, last, keep_filter)
-
-element.innerHTML = ''
-element.disabled = false
-
+			element.innerHTML = ''
+			element.disabled = false
 
 			for (let opt of available) {
 				element.appendChild(this.createOption(opt))
@@ -110,8 +91,7 @@ element.disabled = false
 			console.assert(el.id, 'Select element not found')
 			if (!el) continue
 
-if (this.settings[el.id] === undefined) this.settings[el.id] = ''
-
+			if (this.settings[el.id] === undefined) this.settings[el.id] = ''
 
 			el.onchange = () => {
 				if (!this.settings) return
@@ -122,13 +102,11 @@ if (this.settings[el.id] === undefined) this.settings[el.id] = ''
 		}
 
 		$PI.onDidReceiveSettings(action, ({ action, payload }) => {
-const { settings } = payload
-this.settings = settings
-
+			const { settings } = payload
+			this.settings = settings
 
 			for (let field of elements) {
-const dom_field = document.getElementById(field)
-
+				const dom_field = document.getElementById(field)
 
 				if (settings[field] === undefined) continue
 
@@ -147,8 +125,7 @@ const dom_field = document.getElementById(field)
 			console.assert(el.id, 'Input element not found')
 			if (!el) continue
 
-this.settings[el.id] = ''
-
+			this.settings[el.id] = ''
 
 			el.onchange = () => {
 				if (!this.settings) return
@@ -158,9 +135,8 @@ this.settings[el.id] = ''
 		}
 
 		$PI.onDidReceiveSettings(action, ({ action, payload }) => {
-const { settings } = payload
-this.settings = settings
-
+			const { settings } = payload
+			this.settings = settings
 
 			for (let field of elements) {
 				const dom_field = document.getElementById(field)
@@ -179,14 +155,12 @@ this.settings = settings
 			document.getElementById(id).style = 'display: none;'
 		})
 
-$MS.on('closed', () => {
-	document.getElementById(id).style = ''
-})
-
+		$MS.on('closed', () => {
+			document.getElementById(id).style = ''
+		})
 
 		if ($MS.connected) document.getElementById(id).style = 'display: none;'
 	}
 }
 
 const $MSPI = new MeldStudioPropertyInspector()
-
