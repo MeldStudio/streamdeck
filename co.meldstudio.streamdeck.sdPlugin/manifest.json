@@ -25,6 +25,7 @@
 	},
 	"Actions": [
 		{
+			"shouldSwitchToState": false,
 			"Icon": "assets/Scenes/Change to Scene/Action Icon/iconScene",
 			"Name": "Change Scene",
 			"States": [
@@ -229,12 +230,6 @@
 			"States": [
 				{
 					"Image": "assets/Media/Key Icon/media-controls-play"
-				},
-				{
-					"Image": "assets/Media/Key Icon/media-controls-pause"
-				},
-				{
-					"Image": "assets/Media/Key Icon/media-controls-skip-back"
 				}
 			],
 			"SupportedInMultiActions": true,

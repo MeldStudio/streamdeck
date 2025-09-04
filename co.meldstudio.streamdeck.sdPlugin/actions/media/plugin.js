@@ -4,9 +4,21 @@
 class Media extends MeldStudioPlugin {
   mediaState = {}
 
-  setLocalState (context, isPlaying) {
-    const state = isPlaying ? 1 : 0
-    $SD.setState(context, state)
+  setLocalState (context, action, isPlaying) {
+    let path = isPlaying
+      ? 'assets/Media/Key Icon/media-controls-play.png'
+      : 'assets/Media/Key Icon/media-controls-pause.png'
+
+    if (action === 'restart') {
+      path = 'assets/Media/Key Icon/media-controls-skip-back.png'
+    } else if (action === 'play') {
+      path = 'assets/Media/Key Icon/media-controls-play.png'
+    } else if (action === 'pause') {
+      path = 'assets/Media/Key Icon/media-controls-pause.png'
+    } else {
+    }
+
+    $SD.setImage(context, path, 0)
   }
 
   findMediaLayer (context, session) {
@@ -36,34 +48,37 @@ class Media extends MeldStudioPlugin {
     }
   }
 
-  mediaPlay (context, mediaInfo) {
+  mediaPlay (context, mediaAction, mediaInfo) {
+    this.setLocalState(context, mediaAction, true)
     if (!mediaInfo?.layerId) return
     if ($MS.meld?.callFunction) {
       $MS.meld.callFunction(mediaInfo.layerId, 'play')
     }
   }
 
-  mediaPause (context, mediaInfo) {
+  mediaPause (context, mediaAction, mediaInfo) {
+    this.setLocalState(context, mediaAction, false)
     if (!mediaInfo?.layerId) return
     if ($MS.meld?.callFunction) {
       $MS.meld.callFunction(mediaInfo.layerId, 'pause')
     }
   }
 
-  mediaRestart (context, mediaInfo) {
+  mediaRestart (context, mediaAction, mediaInfo) {
+    this.setLocalState(context, mediaAction, false)
     if (!mediaInfo?.layerId) return
     if ($MS.meld?.callFunctionWithArgs) {
       $MS.meld.callFunctionWithArgs(mediaInfo.layerId, 'skipTo', [0])
     }
   }
 
-  mediaToggle (context, mediaInfo) {
+  mediaToggle (context, mediaAction, mediaInfo) {
     if (!mediaInfo?.layerId) return
     const isPlaying = mediaInfo.layerItem?.isPlaying
     if (isPlaying) {
-      this.mediaPause(context, mediaInfo)
+      this.mediaPause(context, mediaAction, mediaInfo)
     } else {
-      this.mediaPlay(context, mediaInfo)
+      this.mediaPlay(context, mediaAction, mediaInfo)
     }
   }
 
@@ -71,24 +86,29 @@ class Media extends MeldStudioPlugin {
     super('co.meldstudio.streamdeck.media')
 
     const actionHandlers = {
-      play: (context, mediaInfo) => this.mediaPlay(context, mediaInfo),
-      pause: (context, mediaInfo) => this.mediaPause(context, mediaInfo),
-      restart: (context, mediaInfo) => this.mediaRestart(context, mediaInfo),
-      toggle: (context, mediaInfo) => this.mediaToggle(context, mediaInfo)
+      play: (context, mediaAction, mediaInfo) =>
+        this.mediaPlay(context, mediaAction, mediaInfo),
+      pause: (context, mediaAction, mediaInfo) =>
+        this.mediaPause(context, mediaAction, mediaInfo),
+      restart: (context, mediaAction, mediaInfo) =>
+        this.mediaRestart(context, mediaAction, mediaInfo),
+      toggle: (context, mediaAction, mediaInfo) =>
+        this.mediaToggle(context, mediaAction, mediaInfo)
     }
 
     this.action.onKeyUp(({ context }) => {
-      const { action: media_action } = this.getSettings(context)
+      const { action: mediaAction } = this.getSettings(context)
       const mediaInfo = this.mediaState[context]
 
-      const action = media_action || 'toggle'
+      const action = mediaAction || 'toggle'
       const handler = actionHandlers[action]
 
       if (handler) {
-        handler(context, mediaInfo)
+        handler(context, mediaAction, mediaInfo)
       }
     })
 
+    this.action.onKeyDown(() => {})
   }
 
   onSessionChanged (session) {
@@ -105,8 +125,26 @@ class Media extends MeldStudioPlugin {
         layerItem
       }
 
-      this.setLocalState(context, layerItem.isPlaying)
+      const { action: mediaAction } = this.getSettings(context)
+      this.setLocalState(context, mediaAction, layerItem.isPlaying)
     })
+  }
+
+  onReceivedSettings (context, newSettings, oldSettings) {
+    const { action: mediaAction } = newSettings
+    console.log('Media settings changed', {
+      context,
+      newSettings,
+      oldSettings,
+      mediaAction
+    })
+    if (mediaAction !== oldSettings.action) {
+      this.setLocalState(
+        context,
+        mediaAction,
+        this.mediaState[context]?.layerItem?.isPlaying ?? false
+      )
+    }
   }
 }
 
