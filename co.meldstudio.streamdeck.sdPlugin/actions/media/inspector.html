@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.media Property Inspector</title>
+    <link rel="stylesheet" href="../../libs/css/sdpi.css">
+</head>
+
+<body>
+    <div class="sdpi-media sdpi-wrapper">
+        <div class="sdpi-item">
+            <div class="sdpi-item-label" data-localize="Scene">Scene</div>
+            <select class="sdpi-item-value select" id="scene" disabled></select>
+        </div>
+        <div class="sdpi-item">
+            <div class="sdpi-item-label" data-localize="Layer">Layer</div>
+            <select class="sdpi-item-value select" id="layer" disabled></select>
+        </div>
+        
+        <div class="sdpi-item">
+            <div class="sdpi-item-label" data-localize="Action">Action</div>
+            <select class="sdpi-item-value select" id="action" value="toggle">
+                <option value="toggle" data-localize="Toggle Play/Pause">Toggle Play/Pause</option>
+                <option value="play" data-localize="Play">Play</option>
+                <option value="pause" data-localize="Pause">Pause</option>
+                <option value="restart" data-localize="Restart">Restart</option>
+            </select>
+        </div>
+    
+      <div class="sdpi-item" id="loading" style="display: none;">
+        <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
+      </div>
+    </div>
+
+    <!-- libs -->
+    <script src="../../libs/js/utils.js"></script>
+    <script src="../../libs/js/constants.js"></script>
+    <script src="../../libs/js/events.js"></script>
+    <script src="../../libs/js/api.js"></script>
+    <script src="../../libs/js/property-inspector.js"></script>
+    <script src="../../libs/js/timers.js"></script>
+    <script src="../../libs/js/qwebchannel.js"></script>
+    <script src="../../libs/js/meldstudio.js"></script>
+    <script src="../../libs/js/inspector.js"></script>
+
+    <script>
+      $PI.on('connected', () => {
+          $MSPI.watchConnections('loading');
+          // Filter layers to only show those with mediaSource property
+          const mediaFilter = (type, item) => {
+              if (type === 'layer') {
+                  return item.hasOwnProperty('mediaSource');
+              }
+              if (type === 'scene') {
+                  return !item.vertical;
+              }
+              return true; // Don't filter scenes or other types
+          };
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.media", ["scene", "layer"], true, mediaFilter);
+          $MSPI.initializeSelection("co.meldstudio.streamdeck.media", ["action"], false);
+      });
+    </script>
+</body>
+
+</html>

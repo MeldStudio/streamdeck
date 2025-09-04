@@ -60,6 +60,14 @@
             }
         }
     },
+    "co.meldstudio.streamdeck.replay": {
+        "Name": "Replay Control",
+        "Tooltip": "Control replay clip audio and display."
+    },
+    "co.meldstudio.streamdeck.media": {
+        "Name": "Media Control",
+        "Tooltip": "Control media layer playback."
+    },
     "Localization": {
         "Scene": "Scene",
         "Layer": "Layer",
@@ -77,6 +85,15 @@
         "Decibels": "Decibels",
         "Percent": "Percent",
         "Clip": "Clip",
-        "TransitionStepper": "Scene switcher requires that the radial scene switcher feature be enabled in Meld Studio. For more info, visit the Meld Studio Blog."
+        "TransitionStepper": "Scene switcher requires that the radial scene switcher feature be enabled in Meld Studio. For more info, visit the Meld Studio Blog.",
+        "Show Replay": "Show Replay",
+        "Dismiss": "Dismiss Replay",
+        "Toggle Mute": "Toggle Mute",
+        "Volume Up": "Volume Up",
+        "Volume Down": "Volume Down",
+        "Toggle Play/Pause": "Toggle Play/Pause",
+        "Play": "Play",
+        "Pause": "Pause",
+        "Restart": "Restart"
     }
 }
