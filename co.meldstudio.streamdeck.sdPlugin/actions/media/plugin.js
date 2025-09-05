@@ -17,7 +17,6 @@ class Media extends MeldStudioPlugin {
       path = 'assets/Media/Key Icon/media-controls-pause'
     }
 
-    console.log(context, path, 0)
     $SD.setImage(context, path, 0)
   }
 

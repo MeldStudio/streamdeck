@@ -179,14 +179,14 @@
 			"PropertyInspectorPath": "actions/toggle-effect/inspector.html"
 		},
 		{
-			"Icon": "assets/Record/Start_Stop Record/Action Icon/iconRecord",
+			"Icon": "assets/Record/Action Icon/iconRecord",
 			"Name": "Record",
 			"States": [
 				{
-					"Image": "assets/Record/Start_Stop Record/Key Icon/startRecord"
+					"Image": "assets/Record/Key Icon/startRecord"
 				},
 				{
-					"Image": "assets/Record/Start_Stop Record/Key Icon/stopRecord"
+					"Image": "assets/Record/Key Icon/stopRecord"
 				}
 			],
 			"SupportedInMultiActions": true,
