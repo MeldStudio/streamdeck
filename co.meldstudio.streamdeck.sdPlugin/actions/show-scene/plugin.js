@@ -9,7 +9,6 @@ class ShowScene extends MeldStudioPlugin {
 
     this.action.onKeyUp(({ action, context, device, event, payload }) => {
       const { scene } = this.getSettings(context)
-      console.log('Show scene', scene)
       if (!scene) return
 
       this.sceneRequested = scene
