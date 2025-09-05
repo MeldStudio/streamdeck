@@ -68,7 +68,7 @@ class Media extends MeldStudioPlugin {
     this.setLocalState(context, mediaAction, false)
     if (!mediaInfo?.layerId) return
     if ($MS.meld?.callFunctionWithArgs) {
-      $MS.meld.callFunctionWithArgs(mediaInfo.layerId, 'skipTo', [0])
+      $MS.meld.callFunctionWithArgs(mediaInfo.layerId, 'seekTo', [0])
     }
   }
 
