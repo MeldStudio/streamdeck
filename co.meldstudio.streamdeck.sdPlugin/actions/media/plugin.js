@@ -6,15 +6,15 @@ class Media extends MeldStudioPlugin {
 
   setLocalState (context, action, isPlaying) {
     let path = isPlaying
-      ? 'assets/Media/Key Icon/media-controls-play.png'
-      : 'assets/Media/Key Icon/media-controls-pause.png'
+      ? 'assets/Media/Key Icon/media-controls-pause'
+      : 'assets/Media/Key Icon/media-controls-play'
 
     if (action === 'restart') {
-      path = 'assets/Media/Key Icon/media-controls-skip-back.png'
+      path = 'assets/Media/Key Icon/media-controls-skip-back'
     } else if (action === 'play') {
-      path = 'assets/Media/Key Icon/media-controls-play.png'
+      path = 'assets/Media/Key Icon/media-controls-play'
     } else if (action === 'pause') {
-      path = 'assets/Media/Key Icon/media-controls-pause.png'
+      path = 'assets/Media/Key Icon/media-controls-pause'
     } else {
     }
 
@@ -132,12 +132,6 @@ class Media extends MeldStudioPlugin {
 
   onReceivedSettings (context, newSettings, oldSettings) {
     const { action: mediaAction } = newSettings
-    console.log('Media settings changed', {
-      context,
-      newSettings,
-      oldSettings,
-      mediaAction
-    })
     if (mediaAction !== oldSettings.action) {
       this.setLocalState(
         context,

@@ -22,6 +22,17 @@ class Replay extends MeldStudioPlugin {
   replayState = {}
   muted = true
 
+  setLocalState (context, action) {
+    let path;
+    if (action === 'dismiss') {
+      path = 'assets/Replay/Key Icon/dismiss-clip-controls'
+    } else {
+      path = 'assets/Replay/Key Icon/replay-clip-controls'
+    }
+
+    $SD.setImage(context, path, 0)
+  }
+
   findReplayTrack (session) {
     if (!session?.items) return null
 
@@ -127,7 +138,7 @@ class Replay extends MeldStudioPlugin {
 
   onReceivedSettings (context, newSettings, oldSettings) {
     const { action: replay_action } = newSettings
-    console.log('Replay action settings changed:', replay_action)
+    this.setLocalState(context, replay_action)
   }
 
   onSessionChanged (session) {
