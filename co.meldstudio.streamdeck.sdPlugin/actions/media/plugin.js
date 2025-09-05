@@ -15,9 +15,9 @@ class Media extends MeldStudioPlugin {
       path = 'assets/Media/Key Icon/media-controls-play'
     } else if (action === 'pause') {
       path = 'assets/Media/Key Icon/media-controls-pause'
-    } else {
     }
 
+    console.log(context, path, 0)
     $SD.setImage(context, path, 0)
   }
 
@@ -102,7 +102,6 @@ class Media extends MeldStudioPlugin {
 
       const action = mediaAction || 'toggle'
       const handler = actionHandlers[action]
-
       if (handler) {
         handler(context, mediaAction, mediaInfo)
       }
@@ -114,9 +113,11 @@ class Media extends MeldStudioPlugin {
   onSessionChanged (session) {
     this.forAllContexts(context => {
       const mediaLayer = this.findMediaLayer(context, session)
+      const { action: mediaAction } = this.getSettings(context)
+
       if (!mediaLayer) {
         this.mediaState[context] = null
-        return $SD.setState(context, 0)
+        return this.setLocalState(context, mediaAction, false)
       }
 
       const { layerId, layerItem } = mediaLayer
@@ -125,7 +126,6 @@ class Media extends MeldStudioPlugin {
         layerItem
       }
 
-      const { action: mediaAction } = this.getSettings(context)
       this.setLocalState(context, mediaAction, layerItem.isPlaying)
     })
   }
