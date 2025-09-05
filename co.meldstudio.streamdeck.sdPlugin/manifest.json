@@ -25,7 +25,6 @@
 	},
 	"Actions": [
 		{
-			"shouldSwitchToState": false,
 			"Icon": "assets/Scenes/Change to Scene/Action Icon/iconScene",
 			"Name": "Change Scene",
 			"States": [
