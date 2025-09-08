@@ -8,7 +8,7 @@
 	"CodePath": "app.html",
 	"Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
 	"URL": "https://meldstudio.co",
-	"Version": "0.5.1.0",
+	"Version": "0.6.0.0",
 	"UUID": "co.meldstudio.streamdeck",
 	"OS": [
 		{
@@ -179,14 +179,14 @@
 			"PropertyInspectorPath": "actions/toggle-effect/inspector.html"
 		},
 		{
-			"Icon": "assets/Record/Start_Stop Record/Action Icon/iconRecord",
+			"Icon": "assets/Record/Action Icon/iconRecord",
 			"Name": "Record",
 			"States": [
 				{
-					"Image": "assets/Record/Start_Stop Record/Key Icon/startRecord"
+					"Image": "assets/Record/Key Icon/startRecord"
 				},
 				{
-					"Image": "assets/Record/Start_Stop Record/Key Icon/stopRecord"
+					"Image": "assets/Record/Key Icon/stopRecord"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -195,20 +195,46 @@
 			"PropertyInspectorPath": "actions/toggle-record/inspector.html"
 		},
 		{
-			"Icon": "assets/Go live/Go live/Action Icons/goLive",
+			"Icon": "assets/Go live/Action Icons/goLive",
 			"Name": "Go Live",
 			"States": [
 				{
-					"Image": "assets/Go live/Go live/Key Icons/goLive"
+					"Image": "assets/Go live/Key Icons/goLive"
 				},
 				{
-					"Image": "assets/Go live/Go live/Key Icons/goOffiline"
+					"Image": "assets/Go live/Key Icons/goOffiline"
 				}
 			],
 			"SupportedInMultiActions": true,
 			"Tooltip": "Go Live or go offline.",
 			"UUID": "co.meldstudio.streamdeck.toggle-stream",
 			"PropertyInspectorPath": "actions/toggle-stream/inspector.html"
+		},
+		{
+			"Icon": "assets/Replay/Action Icon/replay-clip-controls",
+			"Name": "Replay Control",
+			"States": [
+				{
+					"Image": "assets/Replay/Key Icon/replay-clip-controls"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Control replay clip audio and display.",
+			"UUID": "co.meldstudio.streamdeck.replay",
+			"PropertyInspectorPath": "actions/replay/inspector.html"
+		},
+		{
+			"Icon": "assets/Media/Action Icon/media-controls-action",
+			"Name": "Media Control",
+			"States": [
+				{
+					"Image": "assets/Media/Key Icon/media-controls-play"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Control media layer playback.",
+			"UUID": "co.meldstudio.streamdeck.media",
+			"PropertyInspectorPath": "actions/media/inspector.html"
 		}
 	]
 }

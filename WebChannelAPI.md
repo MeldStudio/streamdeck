@@ -551,6 +551,40 @@ const trackId = /* desired track id */;
 meld.setGain(trackId, 0.5);
 ```
 
+#### **`callFunction(layerId: string, command: string)` and `callFunctionWithArgs(layerId: string, command: string, args: any[])`**
+
+Sends a custom command.
+
+**Parameters**:
+
+| property | type     | description                             |
+| -------- | -------- | --------------------------------------- |
+| layerId  | `string` | Layer ID for layer to call function on. |
+| command  | `string` | Command to trigger in Meld.             |
+| args     | `any[]`  | Arguments.                              |
+
+```js
+meld.callFunction("7958A12F7C782F392B08A793218AB7E8", "play");
+meld.callFunction("7958A12F7C782F392B08A793218AB7E8", "pause");
+meld.callFunctionWithArgs("7958A12F7C782F392B08A793218AB7E8", "seekTo", [0]);
+```
+
+**Supported Functions**:
+
+Media players support `callFunction`:
+
+| event     | action           |
+| --------- |----------------- |
+| `play`    | Play the media.  |
+| `pause`   | Pause the medis. |
+
+Media players support `callFunctionWithArgs`:
+
+| event     | action                                   |
+| --------- | ---------------------------------------- |
+| `seekTo`  | Seek to the specified time (in seconds). |
+
+
 #### **`sendCommand(command: string)`**
 
 Sends a custom command.
@@ -567,17 +601,20 @@ meld.sendCommand("meld.screenshot");
 
 **Supported Events**:
 
-| event                            | action                 |
-| -------------------------------- | ---------------------- |
-| `meld.screenshot`                | Takes a screenshot.    |
-| `meld.recordClip`                | Takes a screenshot.    |
-| `meld.startStreamingAction`      | Start streaming.       |
-| `meld.stopStreamingAction`       | Stop streaming.        |
-| `meld.toggleStreamingAction`     | Toggles streaming.     |
-| `meld.startRecordingAction`      | Start recording.       |
-| `meld.stopRecordingAction`       | Stop recording.        |
-| `meld.toggleRecordingAction`     | Toggle recording.      |
-| `meld.toggleVirtualCameraAction` | Toggle virtual camera. |
+| event                            | action                            |
+| -------------------------------- | --------------------------------- |
+| `meld.screenshot`                | Takes a screenshot.               |
+| `meld.screenshot.vertical`       | Takes a vertical screenshot.      |
+| `meld.startStreamingAction`      | Start streaming.                  |
+| `meld.stopStreamingAction`       | Stop streaming.                   |
+| `meld.toggleStreamingAction`     | Toggles streaming.                |
+| `meld.startRecordingAction`      | Start recording.                  |
+| `meld.stopRecordingAction`       | Stop recording.                   |
+| `meld.toggleRecordingAction`     | Toggle recording.                 |
+| `meld.toggleVirtualCameraAction` | Toggle virtual camera.            |
+| `meld.recordClip`                | Records a clip.                   |
+| `meld.replay.show`               | Show replay layer for last clip.  |
+| `meld.replay.dismiss`            | Dismiss all active replay layers. |
 
 
 #### **`sendEvent(event: string)` (deprecated)**

@@ -41,27 +41,14 @@ For more details: https://streamdecklabs.com/debugging-your-javascript-plugin/
 
 ## Packaging
 
-Elgato provides a CLI packaging tool. The files are just zip files, but the tool does some validation before packaging it all up.
+Elgato provides a CLI packaging tool.
 
 [https://docs.elgato.com/sdk/plugins/packaging]
 
 ```
-$ DistributionTool -b -i co.meldstudio.streamdeck.sdPlugin -o ./
+$ npm -g install @elgato/cli
+$ streamdeck validate co.meldstudio.streamdeck.sdPlugin
+$ streamdeck pack co.meldstudio.streamdeck.sdPlugin
 ```
 
 This outputs a file `co.meldstudio.streamdeck.streamDeckPlugin` which can be installed directly.
-
-### Internal notes:
-
-1) `scripts/build.sh` helper script is provided to generate a versioned plugin file. It will also upload the plugin to the bucket on S3. You must configure your local environment with the correct keys, and you must have the eglato `DistributionTool` in your PATH.
-2) Ensure CloudFront cache for the file gets invalidated after uploading to ensure that the elgato crew downloads the correct plugin file.
-
-Publish request should be sent to `maker@elgato.com` with the following information:
-
-* Link: `https://packages.streamwithmeld.com/co.meldstudio.streamdeck.<version>.streamDeckPlugin`
-* User:  Meld Studio, Inc.
-* Release Notes: _What changed with the new version of your plugin? (features/bug fixes)_
-* Support: hi@meldstudio.co
-* Category: Video
-
-Include the content from `co.meldstudio.streamdeck.streamDeckPlugin/README.md` in the email including the plugin and plugin 2x icons so that our store entry gets updated with all the desired information.

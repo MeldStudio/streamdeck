@@ -60,6 +60,14 @@
             }
         }
     },
+    "co.meldstudio.streamdeck.replay": {
+        "Name": "Replay-Steuerung",
+        "Tooltip": "Steuert Replay-Clip-Audio und -Anzeige."
+    },
+    "co.meldstudio.streamdeck.media": {
+        "Name": "Mediensteuerung",
+        "Tooltip": "Steuert die Medienlayer-Wiedergabe."
+    },
     "Localization": {
         "Scene": "Szene",
         "Layer": "Layer",
@@ -77,6 +85,15 @@
         "Decibels": "Dezibels",
         "Percent": "Prozent",
         "Clip": "Clip",
-        "TransitionStepper": "Für den Szenenumschalter muss die radiale Szenenumschalterfunktion in Meld Studio aktiviert sein. Weitere Informationen finden Sie im Meld Studio Blog."
+        "TransitionStepper": "Für den Szenenumschalter muss die radiale Szenenumschalterfunktion in Meld Studio aktiviert sein. Weitere Informationen finden Sie im Meld Studio Blog.",
+        "Show Replay": "Replay anzeigen",
+        "Dismiss": "Replay ausblenden",
+        "Toggle Mute": "Stumm umschalten",
+        "Volume Up": "Lauter",
+        "Volume Down": "Leiser",
+        "Toggle Play/Pause": "Wiedergabe/Pause umschalten",
+        "Play": "Wiedergeben",
+        "Pause": "Pausieren",
+        "Restart": "Neustart"
     }
 }

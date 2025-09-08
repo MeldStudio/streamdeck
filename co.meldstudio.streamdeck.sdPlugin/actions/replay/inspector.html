@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.replay Property Inspector</title>
+    <link rel="stylesheet" href="../../libs/css/sdpi.css" />
+  </head>
+
+  <body>
+    <div class="sdpi-replay sdpi-wrapper">
+      <div class="sdpi-item">
+        <div class="sdpi-item-label" data-localize="Action">Action</div>
+        <select class="sdpi-item-value select" id="action" value="replay">
+          <option value="replay" data-localize="Show Replay">
+            Show Replay
+          </option>
+          <option value="dismiss" data-localize="Dismiss">
+            Dismiss Replay
+          </option>
+          <!-- <option value="toggle" data-localize="Toggle Mute">Toggle Mute</option>
+                <option value="mute" data-localize="Mute">Mute</option>
+                <option value="unmute" data-localize="Unmute">Unmute</option>
+                <option value="volume_up" data-localize="Volume Up">Volume Up</option>
+                <option value="volume_down" data-localize="Volume Down">Volume Down</option> -->
+        </select>
+      </div>
+
+      <div class="sdpi-item" id="loading" style="display: none">
+        <div class="sdpi-connecting" data-localize="Connecting">
+          Connecting to Meld Studio...
+        </div>
+      </div>
+    </div>
+
+    <!-- libs -->
+    <script src="../../libs/js/utils.js"></script>
+    <script src="../../libs/js/constants.js"></script>
+    <script src="../../libs/js/events.js"></script>
+    <script src="../../libs/js/api.js"></script>
+    <script src="../../libs/js/property-inspector.js"></script>
+    <script src="../../libs/js/timers.js"></script>
+    <script src="../../libs/js/qwebchannel.js"></script>
+    <script src="../../libs/js/meldstudio.js"></script>
+    <script src="../../libs/js/inspector.js"></script>
+
+    <script>
+      $PI.on("connected", () => {
+        $MSPI.watchConnections("loading");
+        $MSPI.initializeSelection(
+          "co.meldstudio.streamdeck.replay",
+          ["action"],
+          false
+        );
+      });
+    </script>
+  </body>
+</html>

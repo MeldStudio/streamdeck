@@ -12,7 +12,8 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.5.1.0
+Version 0.6.0.0
+- Added Instant Replay and Media Controls for replaying clips and controlling media layers.
 - Use new setMuted method to avoid depreciated setProperty call on "muted" AudioTrack properties.
 
 ## Helpful Links
@@ -33,9 +34,10 @@ hi@meldstudio.co
 # Change History:
 ------------
 
-## 2025-07-11 (v0.5.1.0)
+## 2025-09-08 (v0.6.0.0)
 ### Changes:
 -----------
+- Added Instant Replay and Media Controls for replaying clips and controlling media layers.
 - Use new setMuted method to avoid depreciated setProperty call on "muted" AudioTrack properties.
 
 
