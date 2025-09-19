@@ -21,10 +21,40 @@ function toGain (dB) {
 class Replay extends MeldStudioPlugin {
   replayState = {}
   muted = true
+  monitoring = false
 
   setLocalState (context, action) {
-    let path;
-    if (action === 'dismiss') {
+    let path
+
+    if (['toggle', 'mute', 'unmute'].includes(action)) {
+      const muted = this.replayState?.muted ?? true
+      if (action === 'mute') {
+        path = 'assets/ReplayMute/replay-clip-muted'
+      } else if (action === 'unmute') {
+        path = 'assets/ReplayMute/replay-clip-unmuted'
+      } else {
+        // toggle action shows current state
+        path = muted
+          ? 'assets/ReplayMute/replay-clip-muted'
+          : 'assets/ReplayMute/replay-clip-unmuted'
+      }
+    } else if (['toggle_cue', 'cue', 'uncue'].includes(action)) {
+      const monitoring = this.replayState?.monitoring ?? false
+      if (action === 'cue') {
+        path = 'assets/ReplayCUE/on'
+      } else if (action === 'uncue') {
+        path = 'assets/ReplayCUE/off'
+      } else {
+        // toggle_cue action shows current state
+        path = monitoring
+          ? 'assets/ReplayCUE/on'
+          : 'assets/ReplayCUE/off'
+      }
+    } else if (action === 'volume_up') {
+      path = 'assets/ReplayVolume/replay-clip-volumeUp'
+    } else if (action === 'volume_down') {
+      path = 'assets/ReplayVolume/replay-clip-volumeDown'
+    } else if (action === 'dismiss') {
       path = 'assets/Replay/Key Icon/dismiss-clip-controls'
     } else {
       path = 'assets/Replay/Key Icon/replay-clip-controls'
@@ -60,7 +90,7 @@ class Replay extends MeldStudioPlugin {
   }
 
   replayShow () {
-    if (this.replayState) return
+    if (this.replayState?.layerId) return
     if ($MS.meld?.sendCommand) $MS.meld.sendCommand('meld.replay.show')
   }
 
@@ -77,7 +107,7 @@ class Replay extends MeldStudioPlugin {
     if (!this.replayState?.trackId) return
     if ($MS.meld?.setMuted) {
       $MS.meld.setMuted(this.replayState.trackId, true)
-      this.muted = true
+      this.replayState.muted = true
     }
   }
 
@@ -85,7 +115,29 @@ class Replay extends MeldStudioPlugin {
     if (!this.replayState?.trackId) return
     if ($MS.meld?.setMuted) {
       $MS.meld.setMuted(this.replayState.trackId, false)
-      this.muted = false
+      this.replayState.muted = false
+    }
+  }
+
+  replayToggleCue () {
+    if (!this.replayState?.trackId) return
+    if ($MS.meld?.toggleMonitor)
+      $MS.meld.toggleMonitor(this.replayState.trackId)
+  }
+
+  replayCue () {
+    if (!this.replayState?.trackId) return
+    if ($MS.meld?.setProperty) {
+      $MS.meld.setProperty(this.replayState.trackId, 'monitoring', true)
+      this.replayState.monitoring = false
+    }
+  }
+
+  replayUncue () {
+    if (!this.replayState?.trackId) return
+    if ($MS.meld?.setProperty) {
+      $MS.meld.setProperty(this.replayState.trackId, 'monitoring', false)
+      this.replayState.monitoring = false
     }
   }
 
@@ -122,6 +174,9 @@ class Replay extends MeldStudioPlugin {
       toggle: () => this.replayToggleMute(),
       mute: () => this.replayMute(),
       unmute: () => this.replayUnmute(),
+      toggle_cue: () => this.replayToggleCue(),
+      cue: () => this.replayCue(),
+      uncue: () => this.replayUncue(),
       volume_up: () => this.replayVolumeUp(),
       volume_down: () => this.replayVolumeDown()
     }
@@ -144,8 +199,10 @@ class Replay extends MeldStudioPlugin {
   onSessionChanged (session) {
     const replayTrack = this.findReplayTrack(session)
     if (!replayTrack) {
-      this.replayState = null
-      this.muted = true
+      this.replayState = {
+        muted: true,
+        monitoring: false
+      }
       return
     }
 
@@ -154,8 +211,13 @@ class Replay extends MeldStudioPlugin {
       layerId,
       trackId,
       muted: trackItem.muted,
+      monitoring: trackItem.monitoring,
       gain: trackItem.gain ?? 0.0
     }
+
+    this.forAllContexts((context, settings) => {
+      this.setLocalState(context, settings.action)
+    })
   }
 }
 
