@@ -68,6 +68,10 @@
         "Name": "Media Control",
         "Tooltip": "Control media layer playback."
     },
+    "co.meldstudio.streamdeck.widget-control": {
+        "Name": "Widget Control",
+        "Tooltip": "Trigger events for Meld Studio widgets."
+    },
     "Localization": {
         "Scene": "Scene",
         "Layer": "Layer",
@@ -94,6 +98,21 @@
         "Toggle Play/Pause": "Toggle Play/Pause",
         "Play": "Play",
         "Pause": "Pause",
-        "Restart": "Restart"
+        "Restart": "Restart",
+        "Widget Event": "Widget Event",
+        "Widget": "Widget",
+        "Stop Watch": "Stop Watch",
+        "Countdown": "Countdown",
+        "Confetti Fall": "Confetti Fall",
+        "Confetti Pop": "Confetti Pop",
+        "Subathon": "Subathon",
+        "Wheel Spin": "Wheel Spin",
+        "Reset": "Reset",
+        "Resume": "Resume",
+        "Drop it!": "Drop it!",
+        "Pop it!": "Pop it!",
+        "Add Time": "Add Time",
+        "Seconds to Add": "Seconds to Add",
+        "Spin it!": "Spin it!"
     }
 }

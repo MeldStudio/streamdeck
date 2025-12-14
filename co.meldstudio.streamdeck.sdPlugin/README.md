@@ -12,7 +12,8 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.6.1.0
+Version 0.6.2.1
+- Added Widget control actions for controlling the counter widget in Meld Studio.
 - Added Mute and Cue controls to the Replay Clip action.
 
 ## Helpful Links
@@ -33,17 +34,29 @@ hi@meldstudio.co
 # Change History:
 ------------
 
-## 2025-09-19 (v0.6.1.0)
+## 2026-01-22 (v0.6.2.1)
 ### Changes:
 -----------
 - Added Mute and Cue controls to the Replay Clip action.
+
+
+## 2026-01-22 (v0.6.2.0)
+### Changes:
+-----------
+- Added Widget control actions for controlling the counter widget in Meld Studio.
+
+
+## 2025-12-16 (v0.6.1.0)
+### Changes:
+-----------
+- Added Widget control actions for controlling supported widgets in Meld Studio.
 
 
 ## 2025-09-08 (v0.6.0.0)
 ### Changes:
 -----------
 - Added Instant Replay and Media Controls for replaying clips and controlling media layers.
-- Use new setMuted method to avoid depreciated setProperty call on "muted" AudioTrack properties.
+- Use new setMuted method to avoid deprecated setProperty call on "muted" AudioTrack properties.
 
 
 ## 2025-01-30 (v0.5.0.1)

@@ -8,7 +8,7 @@
 	"CodePath": "app.html",
 	"Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
 	"URL": "https://meldstudio.co",
-	"Version": "0.6.1.0",
+	"Version": "0.6.2.1",
 	"UUID": "co.meldstudio.streamdeck",
 	"OS": [
 		{
@@ -235,6 +235,19 @@
 			"Tooltip": "Control media layer playback.",
 			"UUID": "co.meldstudio.streamdeck.media",
 			"PropertyInspectorPath": "actions/media/inspector.html"
+		},
+		{
+			"Icon": "assets/Widget/Action Icon/widget-controls-action",
+			"Name": "Widget Control",
+			"States": [
+				{
+					"Image": "assets/Widget/Key Icon/widget-stopwatch-reset"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"Tooltip": "Trigger events for Meld Studio widgets.",
+			"UUID": "co.meldstudio.streamdeck.widget-control",
+			"PropertyInspectorPath": "actions/widget-control/inspector.html"
 		}
 	]
 }

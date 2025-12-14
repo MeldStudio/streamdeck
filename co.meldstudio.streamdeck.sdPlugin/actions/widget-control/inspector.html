@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.widget-control Property Inspector</title>
+    <link rel="stylesheet" href="../../libs/css/sdpi.css">
+    <style>
+      .sdpi-widget-control #event,
+      .sdpi-widget-control #widget {
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23d8d8d8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+        background-size: 12px 8px;
+        padding-right: 32px;
+        background-color: var(--sdpi-background);
+        color: var(--sdpi-color);
+      }
+
+      .sdpi-widget-control select option {
+        background-color: var(--sdpi-background);
+        color: var(--sdpi-color);
+      }
+    </style>
+</head>
+
+<body>
+    <div class="sdpi-widget-control sdpi-wrapper">
+        <div class="sdpi-item">
+            <div class="sdpi-item-label" data-localize="Widget">Widget</div>
+            <select class="sdpi-item-value select" id="widget" value="STOPWATCH">
+                <option value="STOPWATCH" data-localize="Stop Watch" selected>Stop Watch</option>
+                <option value="COUNTDOWN" data-localize="Countdown">Countdown</option>
+                <option value="CONFETTIFALL" data-localize="Confetti Fall">Confetti Fall</option>
+                <option value="CONFETTIPOP" data-localize="Confetti Pop">Confetti Pop</option>
+                <option value="SUBATHONTIMER" data-localize="Subathon">Subathon</option>
+                <option value="WHEELSPIN" data-localize="Wheel Spin">Wheel Spin</option>
+                <option value="COUNTER" data-localize="Counter">Counter</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item">
+            <div class="sdpi-item-label" data-localize="Action">Action</div>
+            <select class="sdpi-item-value select" id="event" value="STOPWATCH_RESET">
+                <option value="STOPWATCH_RESET" selected data-widget="STOPWATCH" data-localize="Reset">Reset</option>
+                <option value="STOPWATCH_PAUSE" data-widget="STOPWATCH" data-localize="Pause">Pause</option>
+                <option value="STOPWATCH_RESUME" data-widget="STOPWATCH" data-localize="Resume">Resume</option>
+                <option value="COUNTDOWN_RESET" data-widget="COUNTDOWN" data-localize="Reset">Reset</option>
+                <option value="COUNTDOWN_PAUSE" data-widget="COUNTDOWN" data-localize="Pause">Pause</option>
+                <option value="COUNTDOWN_RESUME" data-widget="COUNTDOWN" data-localize="Resume">Resume</option>
+                <option value="CONFETTIFALL_TRIGGER" data-widget="CONFETTIFALL" data-localize="Drop it!">Drop it!</option>
+                <option value="CONFETTIPOP_TRIGGER" data-widget="CONFETTIPOP" data-localize="Pop it!">Pop it!</option>
+                <option value="SUBATHONTIMER_RESET" data-widget="SUBATHONTIMER" data-localize="Reset">Reset</option>
+                <option value="SUBATHONTIMER_PAUSE" data-widget="SUBATHONTIMER" data-localize="Pause">Pause</option>
+                <option value="SUBATHONTIMER_RESUME" data-widget="SUBATHONTIMER" data-localize="Resume">Resume</option>
+                <option value="SUBATHONTIMER_ADDTIME" data-widget="SUBATHONTIMER" data-localize="Add Time">Add Time</option>
+                <option value="WHEELSPIN_SPIN" data-widget="WHEELSPIN" data-localize="Spin it!">Spin it!</option>
+                <option value="COUNTER_INCREMENT" data-widget="COUNTER" data-localize="Increment">Increment</option>
+                <option value="COUNTER_DECREMENT" data-widget="COUNTER" data-localize="Decrement">Decrement</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" id="amount-row" style="display: none;">
+            <div class="sdpi-item-label" data-localize="Seconds to Add">Seconds to Add</div>
+            <input type="number" class="sdpi-item-value" id="amount" value="60" min="0" />
+        </div>
+    
+      <div class="sdpi-item" id="loading" style="display: none;">
+        <div class="sdpi-connecting" data-localize="Connecting">Connecting to Meld Studio...</div>
+      </div>
+    </div>
+
+    <!-- libs -->
+    <script src="../../libs/js/utils.js"></script>
+    <script src="../../libs/js/constants.js"></script>
+    <script src="../../libs/js/events.js"></script>
+    <script src="../../libs/js/api.js"></script>
+    <script src="../../libs/js/property-inspector.js"></script>
+    <script src="../../libs/js/timers.js"></script>
+    <script src="../../libs/js/qwebchannel.js"></script>
+    <script src="../../libs/js/meldstudio.js"></script>
+    <script src="../../libs/js/inspector.js"></script>
+
+    <script>
+      const ADD_TIME_EVENT = 'SUBATHONTIMER_ADDTIME';
+      const DEFAULT_WIDGET = 'STOPWATCH';
+      const DEFAULT_EVENT = 'STOPWATCH_RESET';
+      const DEFAULT_AMOUNT = '60';
+      const actionUUID = "co.meldstudio.streamdeck.widget-control";
+
+      const fields = {
+        widget: document.getElementById('widget'),
+        event: document.getElementById('event'),
+        amount: document.getElementById('amount'),
+        amountRow: document.getElementById('amount-row')
+      };
+
+      const state = {
+        settings: {
+          widget: DEFAULT_WIDGET,
+          event: DEFAULT_EVENT,
+          amount: DEFAULT_AMOUNT
+        }
+      };
+
+      const eventOptions = fields.event ? Array.from(fields.event.options) : [];
+
+      function localizeText (key, fallback) {
+        return key && $PI?.localize ? $PI.localize(key) : (fallback || key || '');
+      }
+
+      function deriveWidgetFromEvent (eventValue) {
+        const matching = eventOptions.find(option => option.value === eventValue);
+        return matching?.dataset?.widget || DEFAULT_WIDGET;
+      }
+
+      function localizeOptions (options) {
+        options.forEach(option => {
+          const labelKey = option.dataset.localize || option.textContent.trim();
+          option.textContent = localizeText(labelKey, option.textContent.trim());
+        });
+      }
+
+      function setEventOptions (widgetId, selectedEvent) {
+        if (!fields.event) return;
+
+        fields.event.innerHTML = '';
+
+        const options = eventOptions.filter(option => option.dataset.widget === widgetId);
+        options.forEach(option => fields.event.appendChild(option));
+
+        const resolvedEvent = options.find(option => option.value === selectedEvent) || options[0];
+        if (resolvedEvent) {
+          fields.event.value = resolvedEvent.value;
+        }
+      }
+
+      function resolveWidget (preferredWidget, eventValue) {
+        const available = fields.widget
+          ? Array.from(fields.widget.options).map(option => option.value)
+          : [];
+        const candidate = preferredWidget || deriveWidgetFromEvent(eventValue);
+        if (available.includes(candidate)) return candidate;
+        return available[0] || DEFAULT_WIDGET;
+      }
+
+      function refreshWidgetLabels () {
+        if (!fields.widget) return;
+
+        localizeOptions(Array.from(fields.widget.options));
+        localizeOptions(eventOptions);
+
+        const resolvedWidget = resolveWidget(fields.widget.value, fields.event?.value || state.settings.event);
+        fields.widget.value = resolvedWidget;
+        setEventOptions(resolvedWidget, fields.event?.value || state.settings.event);
+      }
+
+      $PI.on('localizationLoaded', refreshWidgetLabels);
+
+      function toggleAmountVisibility () {
+        if (!fields.event || !fields.amountRow) return;
+        fields.amountRow.style.display = fields.event.value === ADD_TIME_EVENT ? '' : 'none';
+      }
+
+      function saveSettings (updates = {}) {
+        state.settings = { ...state.settings, ...updates };
+        $PI.setSettings(state.settings);
+      }
+
+      function applySettings (settings = {}) {
+        const resolvedEvent = settings.event || DEFAULT_EVENT;
+        const resolvedWidget = resolveWidget(settings.widget, resolvedEvent);
+        const resolvedAmount = settings.amount ?? fields.amount?.value ?? DEFAULT_AMOUNT;
+
+        if (fields.widget) fields.widget.value = resolvedWidget;
+        setEventOptions(resolvedWidget, resolvedEvent);
+        const selectedEvent = fields.event?.value || resolvedEvent;
+        if (fields.amount) fields.amount.value = resolvedAmount;
+
+        const merged = {
+          widget: resolvedWidget,
+          event: selectedEvent,
+          amount: resolvedAmount
+        };
+
+        toggleAmountVisibility();
+
+        const changedByInspector =
+          settings.widget !== merged.widget ||
+          settings.event !== merged.event ||
+          settings.amount === undefined;
+
+        state.settings = merged;
+
+        if (changedByInspector) {
+          $PI.setSettings(merged);
+        }
+      }
+
+      $PI.on('connected', () => {
+          $MSPI.watchConnections('loading');
+          const { widget, event, amount } = fields;
+
+          widget?.addEventListener('change', () => {
+            const selectedWidget = widget.value || DEFAULT_WIDGET;
+            setEventOptions(selectedWidget, null);
+            saveSettings({ widget: selectedWidget, event: event?.value });
+            toggleAmountVisibility();
+          });
+
+          event?.addEventListener('change', () => {
+            if (!event.value) return;
+            saveSettings({ event: event.value });
+            toggleAmountVisibility();
+          });
+
+          amount?.addEventListener('change', () => {
+            saveSettings({ amount: amount.value });
+          });
+
+          $PI.onDidReceiveSettings(actionUUID, ({ payload }) => {
+            applySettings(payload?.settings);
+          });
+
+          $PI.getSettings();
+          refreshWidgetLabels();
+          toggleAmountVisibility();
+      });
+    </script>
+</body>
+
+</html>
