@@ -644,6 +644,8 @@ Dispatches a widget-specific event to Meld Studio (e.g., stopwatch, countdown, c
 | `SUBATHONTIMER_RESUME`  | subathon timer | Resume the subathon timer.                     | –                                  |
 | `SUBATHONTIMER_ADDTIME` | subathon timer | Add time (seconds) to the subathon timer.      | `{ \"amount\": number }`           |
 | `WHEELSPIN_SPIN`        | wheel spin     | Spin the wheel.                                | –                                  |
+| `COUNTER_INCREMENT`     | counter        | Increments the counter.                        | –                                  |
+| `COUNTER_DECREMENT`     | counter        | Decrements the counter.                        | –                                  |
 
 **Examples**:
 
