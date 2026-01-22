@@ -68,6 +68,10 @@
         "Name": "Mediensteuerung",
         "Tooltip": "Steuert die Medienlayer-Wiedergabe."
     },
+    "co.meldstudio.streamdeck.widget-control": {
+        "Name": "Widget-Steuerung",
+        "Tooltip": "Löst Ereignisse für Meld Studio Widgets aus."
+    },
     "Localization": {
         "Scene": "Szene",
         "Layer": "Layer",
@@ -94,6 +98,24 @@
         "Toggle Play/Pause": "Wiedergabe/Pause umschalten",
         "Play": "Wiedergeben",
         "Pause": "Pausieren",
-        "Restart": "Neustart"
+        "Restart": "Neustart",
+        "Widget Event": "Widget-Ereignis",
+        "Widget": "Widget",
+        "Stop Watch": "Stoppuhr",
+        "Countdown": "Countdown",
+        "Confetti Fall": "Konfetti-Fall",
+        "Confetti Pop": "Konfetti-Pop",
+        "Subathon": "Subathon",
+        "Wheel Spin": "Glücksrad",
+        "Reset": "Zurücksetzen",
+        "Resume": "Fortsetzen",
+        "Drop it!": "Fallen lassen!",
+        "Pop it!": "Platzen lassen!",
+        "Add Time": "Zeit hinzufügen",
+        "Seconds to Add": "Sekunden hinzufügen",
+        "Spin it!": "Drehen!",
+        "Counter": "Zähler",
+        "Increment": "Erhöhen",
+        "Decrement": "Verringern"
     }
 }

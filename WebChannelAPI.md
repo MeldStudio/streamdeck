@@ -503,7 +503,7 @@ _Side Effects_: Once streaming starts, the `channel`'s `isStreaming` property wi
 meld.toggleStream();
 ```
 
-#### **`registerTrackObserver(context: string, trackId: string)`**
+#### **`registerTrackObserver(trackId: string, context: string)`**
 
 Registers an observer for changes to a specific track.
 
@@ -519,7 +519,7 @@ const trackId = /* desired track id */;
 meld.registerTrackObserver("documentation-context", trackId);
 ```
 
-#### **`unregisterTrackObserver()`**
+#### **`unregisterTrackObserver(trackId: string, context: string)`**
 
 Unregisters an observer for a specific track.
 
@@ -615,6 +615,47 @@ meld.sendCommand("meld.screenshot");
 | `meld.recordClip`                | Records a clip.                   |
 | `meld.replay.show`               | Show replay layer for last clip.  |
 | `meld.replay.dismiss`            | Dismiss all active replay layers. |
+
+#### **`sendStreamEvent(type: string, data?: any)`**
+
+Dispatches a widget-specific event to Meld Studio (e.g., stopwatch, countdown, confetti, subathon timer, wheel spin).
+
+**Parameters**:
+
+| property | type   | description                                                                                 |
+| -------- | ------ | ------------------------------------------------------------------------------------------- |
+| type     | string | Event identifier for the widget action.                                                     |
+| data     | any    | Optional payload. Only required for events that accept data (see table below).             |
+
+**Supported Events**:
+
+| type                    | widget         | description                                    | data                               |
+| ----------------------- | -------------- | ---------------------------------------------- | ---------------------------------- |
+| `STOPWATCH_RESET`       | stopwatch      | Reset the stopwatch.                           | –                                  |
+| `STOPWATCH_PAUSE`       | stopwatch      | Pause the stopwatch.                           | –                                  |
+| `STOPWATCH_RESUME`      | stopwatch      | Resume the stopwatch.                          | –                                  |
+| `COUNTDOWN_RESET`       | countdown      | Reset the countdown.                           | –                                  |
+| `COUNTDOWN_PAUSE`       | countdown      | Pause the countdown.                           | –                                  |
+| `COUNTDOWN_RESUME`      | countdown      | Resume the countdown.                          | –                                  |
+| `CONFETTIFALL_TRIGGER`  | confetti fall  | Trigger a confetti fall animation.             | –                                  |
+| `CONFETTIPOP_TRIGGER`   | confetti pop   | Trigger a confetti pop animation.              | –                                  |
+| `SUBATHONTIMER_RESET`   | subathon timer | Reset the subathon timer.                      | –                                  |
+| `SUBATHONTIMER_PAUSE`   | subathon timer | Pause the subathon timer.                      | –                                  |
+| `SUBATHONTIMER_RESUME`  | subathon timer | Resume the subathon timer.                     | –                                  |
+| `SUBATHONTIMER_ADDTIME` | subathon timer | Add time (seconds) to the subathon timer.      | `{ \"amount\": number }`           |
+| `WHEELSPIN_SPIN`        | wheel spin     | Spin the wheel.                                | –                                  |
+| `COUNTER_INCREMENT`     | counter        | Increments the counter.                        | –                                  |
+| `COUNTER_DECREMENT`     | counter        | Decrements the counter.                        | –                                  |
+
+**Examples**:
+
+```js
+// Trigger a confetti pop
+meld.sendStreamEvent("CONFETTIPOP_TRIGGER");
+
+// Add 120 seconds to the subathon timer
+meld.sendStreamEvent("SUBATHONTIMER_ADDTIME", { amount: 120 });
+```
 
 
 #### **`sendEvent(event: string)` (deprecated)**
