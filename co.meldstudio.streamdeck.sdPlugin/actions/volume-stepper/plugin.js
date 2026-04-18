@@ -106,39 +106,31 @@ class VolumeStepper extends MeldStudioPlugin {
       });
     });
 
-    this.action.onDidReceiveSettings(({ context, payload }) => {
-      this.setSettings(context, payload?.settings ?? {});
-
-      if ($MS.ready) {
-        this.onReady(context, payload?.settings);
-      } else {
-        // If we lose connection, we may need to reinitialize.
-        $MS.on("ready", () => {
-          this.onReady(context, payload?.settings);
-        });
-
-        this.setGainAndMute(context, payload.settings.metertype, {
-          gain: 0.0,
-          muted: true,
-          monitoring: false,
-        });
-      }
+    this.action.onWillDisappear(({ context }) => {
+      this.maybeUnregister(context);
     });
 
     $MS.on("sessionChanged", (session) => {
       this.forAllContexts((context, { track, metertype }) => {
         if (!track) return;
-        if (!session?.items) return;
-        if (!session?.items[track]) return;
 
-        const { name, muted, monitoring } = session.items[track];
-
-        this.trackInfo[track] = {
-          ...this.trackInfo[track],
-          name,
-          muted,
-          monitoring,
-        };
+        const item = session?.items?.[track];
+        if (!item) {
+          this.trackInfo[track] = {
+            gain: 0.0,
+            muted: true,
+            monitoring: false,
+            name: undefined,
+          };
+        } else {
+          const { name, muted, monitoring } = item;
+          this.trackInfo[track] = {
+            ...this.trackInfo[track],
+            name,
+            muted,
+            monitoring,
+          };
+        }
 
         this.setGainAndMute(context, metertype, this.trackInfo[track]);
       });
@@ -255,14 +247,12 @@ class VolumeStepper extends MeldStudioPlugin {
 
     this.setGainAndMute(context, metertype, this.trackInfo[track]);
     this.register(context, track);
-
-    this.action.onWillDisappear(({ context }) => {
-      this.maybeUnregister(context);
-    });
   }
 
-  onReady(context, { track, metertype }) {
+  onReady(context, settings) {
     console.assert($MS.ready);
+    const { track, metertype } = settings ?? {};
+    if (!track) return;
     if (this.isEncoder(context)) this.connectGain(context, metertype, track);
   }
 }

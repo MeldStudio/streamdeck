@@ -88,7 +88,13 @@ class MeldStudioPlugin {
 			$SD.getSettings(context)
 		})
 
+		this.action.onWillDisappear(({ context }) => {
+			delete this.contexts[context]
+		})
+
 		this.action.onDidReceiveSettings(({ context, payload }) => {
+			if (!this.contexts[context]) return
+
 			const oldSettings = this.getSettings(context)
 			this.setSettings(context, payload?.settings ?? {})
 
@@ -96,12 +102,16 @@ class MeldStudioPlugin {
 				this.onReady(context, payload?.settings, oldSettings)
 			}
 
-			// If we lose connection, we may need to reinitialize.
-			$MS.on('ready', () => {
-				this.onReady(context, payload?.settings, oldSettings)
-			})
-
 			this.onReceivedSettings(context, payload?.settings, oldSettings)
+		})
+
+		// Reinitialize every active context on reconnect — $MS.meld is a fresh
+		// QWebChannel object, so any prior registrations are gone. One listener
+		// per plugin instance; do not register per-settings-delivery.
+		$MS.on('ready', () => {
+			this.forAllContexts((context, settings) => {
+				this.onReady(context, settings)
+			})
 		})
 
 		$MS.on('sessionChanged', session => {
@@ -113,10 +123,11 @@ class MeldStudioPlugin {
 
 	onSessionChanged (session) {}
 
-	onReady () {
-		if (!$MS.meld?.session) return
-		this.onSessionChanged($MS.meld.session)
-	}
+	// Default: rely on the synthetic sessionChanged/isStreamingChanged/
+	// isRecordingChanged emissions that $MS fires right after 'ready'.
+	// Subclasses override when per-context reinit (e.g. track observer
+	// re-registration) is needed.
+	onReady (context, settings) {}
 
 	setSettings (context, settings) {
 		this.contexts[context].settings = settings
