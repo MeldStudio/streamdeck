@@ -12,9 +12,8 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.6.2.1
-- Added Widget control actions for controlling the counter widget in Meld Studio.
-- Added Mute and Cue controls to the Replay Clip action.
+Version 0.6.3.0
+- Fixed a bug in how dials and scene change actions store state.
 
 ## Helpful Links
 
@@ -33,6 +32,12 @@ hi@meldstudio.co
 ------------
 # Change History:
 ------------
+
+## 2026-01-22 (v0.6.3.0)
+### Changes:
+-----------
+- Fixed a bug in how dials and scene change actions store state.
+
 
 ## 2026-01-22 (v0.6.2.1)
 ### Changes:

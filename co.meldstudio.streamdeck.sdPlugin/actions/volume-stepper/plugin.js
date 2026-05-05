@@ -239,11 +239,16 @@ class VolumeStepper extends MeldStudioPlugin {
   }
 
   connectGain(context, metertype, track) {
-    this.trackInfo[track] = {
-      gain: 0.0,
-      muted: false,
-      name: this.getNameForTrack(track),
-    };
+    // Preserve any prior gain/muted/name across reconnects so the dial does
+    // not flash 0%/-60dB before the next gainUpdated arrives. First-time
+    // connects fall back to defaults.
+    if (!this.trackInfo[track]) {
+      this.trackInfo[track] = {
+        gain: 0.0,
+        muted: false,
+        name: this.getNameForTrack(track),
+      };
+    }
 
     this.setGainAndMute(context, metertype, this.trackInfo[track]);
     this.register(context, track);
