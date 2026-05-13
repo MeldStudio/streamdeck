@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 class ShowScene extends MeldStudioPlugin {
-  sceneRequested = null
+  sceneRequested = {}
 
   constructor () {
     super('co.meldstudio.streamdeck.show-scene')
@@ -11,24 +11,23 @@ class ShowScene extends MeldStudioPlugin {
       const { scene } = this.getSettings(context)
       if (!scene) return
 
-      this.sceneRequested = scene
-      this.updateState(context)
+      this.sceneRequested[context] = scene
+      this.updateState(context, $MS?.meld?.session)
 
       if ($MS.meld?.showScene) $MS.meld.showScene(scene)
     })
   }
 
   onSessionChanged (session) {
-    this.sceneRequested = null
-
-    this.forAllContexts((context, settings) => {
-      this.updateState(context)
-    })
+    this.sceneRequested = {}
   }
 
-  updateState (context) {
+  onHydrate (context, session, settings, reason) {
+    this.updateState(context, session)
+  }
+
+  updateState (context, session) {
     const { scene } = this.getSettings(context)
-    const session = $MS?.meld?.session
 
     const state = (() => {
       if (!scene) return 0
@@ -37,7 +36,7 @@ class ShowScene extends MeldStudioPlugin {
       const item = session.items[scene]
 
       if (!item) return 0
-      if (scene == this.sceneRequested) return 1
+      if (scene == this.sceneRequested[context]) return 1
       return item.current ? 1 : 0
     })()
 

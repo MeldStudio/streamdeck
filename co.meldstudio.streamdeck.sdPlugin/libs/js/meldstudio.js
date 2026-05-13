@@ -83,7 +83,8 @@ class MeldStudioPlugin {
 		this.action.onWillAppear(({ context, payload }) => {
 			this.contexts[context] = {
 				isEncoder: payload.controller == 'Encoder',
-				settings: {}
+				settings: {},
+				settingsReady: false
 			}
 			$SD.getSettings(context)
 		})
@@ -99,7 +100,7 @@ class MeldStudioPlugin {
 			this.setSettings(context, payload?.settings ?? {})
 
 			if ($MS.ready) {
-				this.onReady(context, payload?.settings, oldSettings)
+				this.hydrateContext(context, 'settings')
 			}
 
 			this.onReceivedSettings(context, payload?.settings, oldSettings)
@@ -109,13 +110,12 @@ class MeldStudioPlugin {
 		// QWebChannel object, so any prior registrations are gone. One listener
 		// per plugin instance; do not register per-settings-delivery.
 		$MS.on('ready', () => {
-			this.forAllContexts((context, settings) => {
-				this.onReady(context, settings)
-			})
+			this.hydrateAll('ready')
 		})
 
 		$MS.on('sessionChanged', session => {
 			this.onSessionChanged(session)
+			this.hydrateAll('sessionChanged', session)
 		})
 	}
 
@@ -123,14 +123,11 @@ class MeldStudioPlugin {
 
 	onSessionChanged (session) {}
 
-	// Default: rely on the synthetic sessionChanged/isStreamingChanged/
-	// isRecordingChanged emissions that $MS fires right after 'ready'.
-	// Subclasses override when per-context reinit (e.g. track observer
-	// re-registration) is needed.
-	onReady (context, settings) {}
+	onHydrate (context, session, settings, reason) {}
 
 	setSettings (context, settings) {
 		this.contexts[context].settings = settings
+		this.contexts[context].settingsReady = true
 	}
 
 	isEncoder (context) {
@@ -139,6 +136,19 @@ class MeldStudioPlugin {
 
 	getSettings (context) {
 		return this.contexts[context].settings
+	}
+
+	hydrateContext (context, reason, session = $MS.meld?.session) {
+		const contextInfo = this.contexts[context]
+		if (!contextInfo?.settingsReady) return
+
+		this.onHydrate(context, session, contextInfo.settings, reason)
+	}
+
+	hydrateAll (reason, session = $MS.meld?.session) {
+		for (const context in this.contexts) {
+			this.hydrateContext(context, reason, session)
+		}
 	}
 
 	updateState (context, state) {

@@ -110,32 +110,6 @@ class VolumeStepper extends MeldStudioPlugin {
       this.maybeUnregister(context);
     });
 
-    $MS.on("sessionChanged", (session) => {
-      this.forAllContexts((context, { track, metertype }) => {
-        if (!track) return;
-
-        const item = session?.items?.[track];
-        if (!item) {
-          this.trackInfo[track] = {
-            gain: 0.0,
-            muted: true,
-            monitoring: false,
-            name: undefined,
-          };
-        } else {
-          const { name, muted, monitoring } = item;
-          this.trackInfo[track] = {
-            ...this.trackInfo[track],
-            name,
-            muted,
-            monitoring,
-          };
-        }
-
-        this.setGainAndMute(context, metertype, this.trackInfo[track]);
-      });
-    });
-
     $MS.on("gainChanged", ({ trackId, gain, muted }) => {
       let info = this.trackInfo[trackId];
       info = { ...info, gain, muted };
@@ -153,7 +127,7 @@ class VolumeStepper extends MeldStudioPlugin {
     });
   }
 
-  setGainAndMute(context, metertype, { gain, muted, name, monitoring }) {
+  setGainAndMute(context, metertype, { gain, muted = true, name, monitoring } = {}) {
     // meter colors -
     //   green:   #6DDE92
     //   orange:  #FB923C
@@ -161,10 +135,13 @@ class VolumeStepper extends MeldStudioPlugin {
 
     let use_percent = metertype === "percent";
     let volume;
-    let bar_colors;
     let bar_value;
+    const hasGain = Number.isFinite(gain);
 
-    if (use_percent) {
+    if (!hasGain) {
+      volume = "--";
+      bar_value = 0;
+    } else if (use_percent) {
       volume = `${parseInt(gain * 100)}%`;
       bar_value = gain;
     } else {
@@ -174,7 +151,7 @@ class VolumeStepper extends MeldStudioPlugin {
     }
 
     const info = (() => {
-      if (!muted) {
+      if (!muted && hasGain) {
         if (gain > 0.4)
           return {
             icon:
@@ -198,7 +175,7 @@ class VolumeStepper extends MeldStudioPlugin {
       value: volume,
       indicator: {
         value: bar_value * 100,
-        enabled: true,
+        enabled: hasGain,
         bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92",
       },
     });
@@ -238,27 +215,52 @@ class VolumeStepper extends MeldStudioPlugin {
     return name ? name : defaultName;
   }
 
-  connectGain(context, metertype, track) {
-    // Preserve any prior gain/muted/name across reconnects so the dial does
-    // not flash 0%/-60dB before the next gainUpdated arrives. First-time
-    // connects fall back to defaults.
-    if (!this.trackInfo[track]) {
+  updateTrackInfo(track, session) {
+    const item = session?.items?.[track];
+    const existingInfo = this.trackInfo[track] ?? {};
+
+    if (!item) {
       this.trackInfo[track] = {
-        gain: 0.0,
-        muted: false,
-        name: this.getNameForTrack(track),
+        ...existingInfo,
+        gain: undefined,
+        muted: true,
+        monitoring: false,
+        name: undefined,
+      };
+    } else {
+      const { name, muted, monitoring } = item;
+      this.trackInfo[track] = {
+        ...existingInfo,
+        name,
+        muted,
+        monitoring,
       };
     }
 
-    this.setGainAndMute(context, metertype, this.trackInfo[track]);
-    this.register(context, track);
+    return this.trackInfo[track];
   }
 
-  onReady(context, settings) {
-    console.assert($MS.ready);
+  onHydrate(context, session, settings, reason) {
     const { track, metertype } = settings ?? {};
-    if (!track) return;
-    if (this.isEncoder(context)) this.connectGain(context, metertype, track);
+
+    if (!track) {
+      this.maybeUnregister(context);
+      return;
+    }
+
+    const info = this.updateTrackInfo(track, session);
+
+    if (this.isEncoder(context) && $MS.ready) {
+      this.register(context, track);
+    }
+
+    this.setGainAndMute(context, metertype, info);
+  }
+
+  onReceivedSettings(context, newSettings, oldSettings) {
+    if (newSettings?.track !== oldSettings?.track && !newSettings?.track) {
+      this.maybeUnregister(context);
+    }
   }
 }
 
