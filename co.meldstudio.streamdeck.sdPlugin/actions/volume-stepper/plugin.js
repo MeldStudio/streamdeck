@@ -175,8 +175,8 @@ class VolumeStepper extends MeldStudioPlugin {
       value: volume,
       indicator: {
         value: bar_value * 100,
-        enabled: hasGain,
-        bar_bg_c: muted ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92",
+        enabled: true,
+        bar_bg_c: muted || !hasGain ? "0:#666666,1:#666666" : "0:#6DDE92,1:#6DDE92",
       },
     });
   }
@@ -240,6 +240,10 @@ class VolumeStepper extends MeldStudioPlugin {
     return this.trackInfo[track];
   }
 
+  sessionHasTrack(track, session) {
+    return !!session?.items?.[track];
+  }
+
   onHydrate(context, session, settings, reason) {
     const { track, metertype } = settings ?? {};
 
@@ -250,8 +254,10 @@ class VolumeStepper extends MeldStudioPlugin {
 
     const info = this.updateTrackInfo(track, session);
 
-    if (this.isEncoder(context) && $MS.ready) {
+    if (this.isEncoder(context) && $MS.ready && this.sessionHasTrack(track, session)) {
       this.register(context, track);
+    } else {
+      this.maybeUnregister(context);
     }
 
     this.setGainAndMute(context, metertype, info);

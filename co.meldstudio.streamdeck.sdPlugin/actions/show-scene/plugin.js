@@ -3,6 +3,7 @@
 
 class ShowScene extends MeldStudioPlugin {
   sceneRequested = {}
+  sceneState = {}
 
   constructor () {
     super('co.meldstudio.streamdeck.show-scene')
@@ -12,7 +13,7 @@ class ShowScene extends MeldStudioPlugin {
       if (!scene) return
 
       this.sceneRequested[context] = scene
-      this.updateState(context, $MS?.meld?.session)
+      this.setSceneState(context, 1)
 
       if ($MS.meld?.showScene) $MS.meld.showScene(scene)
     })
@@ -31,7 +32,7 @@ class ShowScene extends MeldStudioPlugin {
 
     const state = (() => {
       if (!scene) return 0
-      if (!session || !session?.items) return 0
+      if (!session || !session?.items) return null
 
       const item = session.items[scene]
 
@@ -40,6 +41,14 @@ class ShowScene extends MeldStudioPlugin {
       return item.current ? 1 : 0
     })()
 
+    if (state === null) return
+    this.setSceneState(context, state)
+  }
+
+  setSceneState (context, state) {
+    if (this.sceneState[context] === state) return
+
+    this.sceneState[context] = state
     $SD.setState(context, state)
   }
 }

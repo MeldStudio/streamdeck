@@ -12,7 +12,7 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.6.3.0
+Version 0.6.3.2
 - Fixed a bug in how dials and scene change actions store state.
 
 ## Helpful Links
@@ -33,7 +33,7 @@ hi@meldstudio.co
 # Change History:
 ------------
 
-## 2026-01-22 (v0.6.3.0)
+## 2026-05-13 (v0.6.3.2)
 ### Changes:
 -----------
 - Fixed a bug in how dials and scene change actions store state.
@@ -96,6 +96,3 @@ hi@meldstudio.co
 ### Changes:
 -----------
 - Initial implementation of 6 core features (Scene Selection, Layer Visibility, Effect Visibility, Mute Audio, Stream, and Record).
-
-
-
