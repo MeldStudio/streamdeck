@@ -58,7 +58,10 @@ describe("TransitionStepper", () => {
 	beforeEach(async () => {
 		server.loadScenario(build().scenario);
 		server.invocations.length = 0;
-		await sleep(40);
+		// Wait for the reloaded snapshot to actually reach the plugin: it rides the
+		// autosave debounce, so a shorter wait would leave each test reasoning from
+		// the previous one's state.
+		await sleep(700);
 		action = new TransitionStepper(connection);
 		dial = new FakeActionInstance("dial", {});
 		mount(action, [dial]);
@@ -113,6 +116,44 @@ describe("TransitionStepper", () => {
 			true,
 			"the staged scene should have become current",
 		);
+	});
+
+	test("does not transition when Meld refused the staged selection", async () => {
+		// setStagedScene silently refuses a scene that is already current, and the
+		// dial's list can be a snapshot behind after a scene switch made elsewhere.
+		// showStagedScene swaps unconditionally, so acting on a refused selection
+		// would hand Meld an unset staged scene and leave no current scene at all.
+		// Someone switches to Bravo in Meld. That rides the autosave, so for the
+		// next several hundred milliseconds the dial's list still calls Bravo
+		// selectable.
+		server.showScene(ids.bravo);
+		await sleep(80);
+
+		// One tick lands on Bravo and stages it — which Meld refuses, silently,
+		// because it is already current. The dial now has a local selection that
+		// Meld does not share.
+		action.onDialRotate(dialRotate(dial, {}, 1) as never);
+		await sleep(80);
+		assert.deepEqual(server.callsTo("setStagedScene").at(-1)?.args, [ids.bravo]);
+		assert.equal(
+			Object.values(server.session.items).some((item) => item.type === "scene" && item.staged),
+			false,
+			"Meld refused the stage, as expected",
+		);
+
+		server.invocations.length = 0;
+		action.onDialDown(keyEvent(dial, {}) as never);
+		await sleep(120);
+
+		assert.equal(
+			server.callsTo("showStagedScene").length,
+			0,
+			"with nothing staged, the press must not ask Meld to swap to it",
+		);
+		const current = Object.values(server.session.items).filter(
+			(item) => item.type === "scene" && item.current,
+		);
+		assert.equal(current.length, 1, "so Meld still has exactly one current scene");
 	});
 
 	test("rotation is inert while Meld is unreachable", async () => {

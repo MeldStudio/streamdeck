@@ -401,7 +401,7 @@ export class FakeMeld {
 					}
 				}
 				scene.staged = true;
-				this.#publishSession();
+				this.#publishSessionNow();
 				return null;
 			}
 			case "showStagedScene": {
@@ -421,7 +421,7 @@ export class FakeMeld {
 					staged.staged = false;
 					staged.current = true;
 				}
-				this.#publishSession();
+				this.#publishSessionNow();
 				return null;
 			}
 			case "toggleMute": {
@@ -613,6 +613,22 @@ export class FakeMeld {
 	 * retriggerable, exactly as Meld's autosave is: a burst of edits produces one
 	 * snapshot, delayed until the burst stops.
 	 */
+	/**
+	 * Republishes immediately, bypassing the autosave debounce.
+	 *
+	 * A staged-scene change is the one edit Meld does not make the plugin wait
+	 * for: `stagedSceneChanged` is wired straight to the mapper, so the snapshot
+	 * is rebuilt on the next event-loop task. Debouncing it here would hide the
+	 * echo-of-an-older-write case the transition dial has to absorb.
+	 */
+	#publishSessionNow(): void {
+		if (this.#sessionTimer) {
+			clearTimeout(this.#sessionTimer);
+			this.#sessionTimer = undefined;
+		}
+		this.#publish(PROP_SESSION, SIG_SESSION_CHANGED, this.#session);
+	}
+
 	#publishSession(): void {
 		const delay = this.#debounceOverride ?? this.#options.sessionDebounceMs ?? MELD_SESSION_DEBOUNCE_MS;
 		if (delay <= 0) {

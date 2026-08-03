@@ -20,6 +20,10 @@ export class ToggleEffect extends SessionToggleAction<ToggleEffectSettings> {
 	protected readonly missingItemState = 0;
 	protected readonly forceOnValue = "show";
 
+	protected targetOf(settings: ToggleEffectSettings): string | undefined {
+		return settings.effect;
+	}
+
 	protected isConfigured(settings: ToggleEffectSettings): boolean {
 		return !!settings.scene && !!settings.layer && !!settings.effect;
 	}

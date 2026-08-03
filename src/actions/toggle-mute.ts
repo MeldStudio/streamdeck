@@ -19,6 +19,10 @@ export class ToggleMute extends SessionToggleAction<ToggleMuteSettings> {
 	protected readonly missingItemState = 1;
 	protected readonly forceOnValue = "mute";
 
+	protected targetOf(settings: ToggleMuteSettings): string | undefined {
+		return settings.track;
+	}
+
 	protected isConfigured(settings: ToggleMuteSettings): boolean {
 		return !!settings.track;
 	}

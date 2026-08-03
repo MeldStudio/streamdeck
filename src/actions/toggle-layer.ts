@@ -19,6 +19,10 @@ export class ToggleLayer extends SessionToggleAction<ToggleLayerSettings> {
 	protected readonly missingItemState = 0;
 	protected readonly forceOnValue = "show";
 
+	protected targetOf(settings: ToggleLayerSettings): string | undefined {
+		return settings.layer;
+	}
+
 	protected isConfigured(settings: ToggleLayerSettings): boolean {
 		return !!settings.scene && !!settings.layer;
 	}

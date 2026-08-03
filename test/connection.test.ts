@@ -209,15 +209,26 @@ describe("MeldConnection", () => {
 	});
 
 	test("delivers recording updates from the current instance", async () => {
+		// Drive a real transition in both directions: asserting `true` while the
+		// value is already true would hold without the plugin reporting anything,
+		// and would never check that the reported boolean matches.
+		server.setRecording(false);
+		await sleep(100);
+		assert.equal(connection.meld?.isRecording, false, "start from a known-false state");
+
 		const recordings: boolean[] = [];
 		const off = connection.on("recordingChanged", (recording) => recordings.push(recording));
 
 		server.setRecording(true);
 		await sleep(100);
-
-		off();
-		assert.deepEqual(recordings, [true]);
 		assert.equal(connection.meld?.isRecording, true);
+
+		server.setRecording(false);
+		await sleep(100);
+		off();
+
+		assert.deepEqual(recordings, [true, false], "each transition must be reported with its own value");
+		assert.equal(connection.meld?.isRecording, false);
 	});
 
 	test("survives repeated instance churn without leaking timers or handles", async () => {

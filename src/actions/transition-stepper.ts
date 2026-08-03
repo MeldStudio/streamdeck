@@ -125,9 +125,22 @@ export class TransitionStepper extends MeldAction<JsonObject> {
 		await this.#paint(action, this.#scenes[this.#stagedIndex]?.name);
 	}
 
-	/** Transitions Meld to the currently staged scene, if one is selected. */
+	/**
+	 * Transitions Meld to the staged scene, if Meld actually has one staged.
+	 *
+	 * A local selection is not enough. `setStagedScene` silently refuses a scene
+	 * that is already current or absent from the session — and the dial's list can
+	 * be a snapshot behind — while `showStagedScene` swaps current and staged
+	 * unconditionally. Acting on a refused selection would therefore make Meld
+	 * adopt an unset staged scene and leave the session with no current scene at
+	 * all, so the snapshot has to confirm the stage first.
+	 */
 	#showStaged(): void {
 		if (this.#stagedIndex === -1) {
+			return;
+		}
+		const staged = this.session().scenes().find((scene) => scene.staged && !scene.current);
+		if (!staged) {
 			return;
 		}
 		this.meld.meld?.showStagedScene?.();

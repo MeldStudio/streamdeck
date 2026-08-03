@@ -152,6 +152,26 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		this.#pending.clear(context);
 	}
 
+	/** @inheritdoc */
+	protected override onSettingsChanged({
+		action,
+		settings,
+		previous,
+	}: RenderArgs<T> & { previous: T | undefined }): void {
+		// A pending press belongs to the item that was configured when it was made.
+		// Retargeting the key would otherwise display that value against the new
+		// item and let the next press move it the wrong way.
+		if (previous !== undefined && this.targetOf(previous) !== this.targetOf(settings)) {
+			this.#pending.clear(action.id);
+		}
+	}
+
+	/**
+	 * The id this action acts on, used to notice a retarget.
+	 * @param settings The action's settings.
+	 */
+	protected abstract targetOf(settings: T): string | undefined;
+
 	/**
 	 * Records the value a press is waiting for, so a follow-up press reasons from
 	 * it rather than from the not-yet-republished snapshot.

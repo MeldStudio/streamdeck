@@ -60,6 +60,20 @@ export class Media extends MeldAction<MediaSettings> {
 	}
 
 	/** @inheritdoc */
+	protected override onSettingsChanged({
+		action,
+		settings,
+		previous,
+	}: RenderArgs<MediaSettings> & { previous: MediaSettings | undefined }): void {
+		// A pending press belongs to the layer that was configured when it was
+		// made; applying it to a newly chosen layer would show the inverse of that
+		// clip's real state and send the wrong command next.
+		if (previous !== undefined && previous.layer !== settings.layer) {
+			this.#optimisticPlaying.clear(action.id);
+		}
+	}
+
+	/** @inheritdoc */
 	override async onKeyUp(ev: KeyUpEvent<MediaSettings>): Promise<void> {
 		const settings = ev.payload.settings;
 		const layer = this.#findMediaLayer(settings, this.session());

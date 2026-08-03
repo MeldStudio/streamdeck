@@ -18,6 +18,10 @@ export class ToggleMonitor extends SessionToggleAction<ToggleMonitorSettings> {
 	protected readonly missingItemState = 0;
 	protected readonly forceOnValue = "cue";
 
+	protected targetOf(settings: ToggleMonitorSettings): string | undefined {
+		return settings.track;
+	}
+
 	protected isConfigured(settings: ToggleMonitorSettings): boolean {
 		return !!settings.track;
 	}
