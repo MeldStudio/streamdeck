@@ -53,10 +53,22 @@ class FakeElement {
 	}
 }
 
-/** A `<select>` with the browser's selection rules. */
+/**
+ * A `<select>` with the browser's selection rules.
+ *
+ * Session-driven dropdowns ship `disabled` in the inspector markup, and
+ * `bindSessionSelects` is the only thing that enables them, so that is the
+ * default here: a select seeded enabled could never show that the binding
+ * failed to enable it. Pass `false` for the few markup-enabled selects.
+ */
 export class FakeSelect extends FakeElement {
 	readonly options: FakeOption[] = [];
 	selectedIndex = -1;
+
+	constructor(disabled = true) {
+		super();
+		this.disabled = disabled;
+	}
 
 	/** Clearing `innerHTML` removes every option, as it does in a browser. */
 	set innerHTML(html: string) {

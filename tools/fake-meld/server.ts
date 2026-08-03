@@ -490,9 +490,30 @@ export class FakeMeld {
 				}
 				return null;
 			}
+			case "callFunction":
+			case "callFunctionWithArgs": {
+				// The QML resolves the object and invokes the named member. For a media
+				// layer, play/pause move `isPlaying`, which is published in the layer
+				// map and arms the autosave — so a media press really does come back
+				// through the snapshot, and the fake has to echo it too.
+				const layer = this.#session.items[first];
+				if (layer?.type !== "layer" || layer.mediaSource === undefined) {
+					return null;
+				}
+				const member = String(second);
+				if (member === "play") {
+					layer.isPlaying = true;
+				} else if (member === "pause") {
+					layer.isPlaying = false;
+				} else if (member !== "seekTo") {
+					return null;
+				}
+				this.#publishSession();
+				return null;
+			}
 			default:
-				// setClientName, callFunction, callFunctionWithArgs, sendCommand,
-				// sendEvent, sendStreamEvent: recorded, no observable session effect.
+				// setClientName, sendCommand, sendEvent, sendStreamEvent: recorded, no
+				// observable session effect.
 				return null;
 		}
 	}

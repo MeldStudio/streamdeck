@@ -69,6 +69,35 @@ describe("Media and ShowScene", () => {
 		assert.ok(key.image?.includes("pause"), `a playing clip shows the pause icon, got ${key.image}`);
 	});
 
+	test("a media press converges on the playback state Meld reports back", async () => {
+		// The press paints optimistically, but the authoritative answer arrives in
+		// the republished snapshot. Both must agree, or the key flips to the wrong
+		// icon shortly after every press.
+		const settings = { scene: ids.scene, layer: ids.clip, action: "toggle" };
+		const action = new Media(connection);
+		const key = new FakeActionInstance("m", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(60);
+		assert.ok(key.image?.includes("pause"), "the clip starts playing");
+
+		// Toggle: playing -> paused.
+		await action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(150);
+		assert.equal(
+			(server.session.items[ids.clip] as { isPlaying: boolean }).isPlaying,
+			false,
+			"Meld should have paused the clip",
+		);
+		assert.ok(key.image?.includes("play"), `a paused clip shows the play icon, got ${key.image}`);
+
+		// And back again.
+		await action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(150);
+		assert.equal((server.session.items[ids.clip] as { isPlaying: boolean }).isPlaying, true);
+		assert.ok(key.image?.includes("pause"), `a playing clip shows the pause icon, got ${key.image}`);
+	});
+
 	test("the media key holds its icon through a connection blip", async () => {
 		// The clip never stopped playing; flipping to "play" would tell the user it
 		// did, and it would stay wrong for the whole reconnect.

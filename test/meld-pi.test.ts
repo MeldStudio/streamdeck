@@ -38,6 +38,22 @@ describe("property inspector runtime", () => {
 		assert.equal(requests.length, 1, "it must ask the plugin for a snapshot on open");
 	});
 
+	test("binding enables the markup-disabled dropdowns", () => {
+		// The inspectors ship these selects disabled so a user cannot pick from an
+		// unpopulated list; binding is the only thing that enables them. Without
+		// this, every scene/layer/effect dropdown would stay greyed out and those
+		// keys could not be configured at all.
+		const pi = loadPropertyInspector();
+		const scene = pi.element("scene", new FakeSelect());
+		const layer = pi.element("layer", new FakeSelect());
+		assert.equal(scene.disabled, true, "the markup starts them disabled");
+
+		pi.MeldPI.bindSessionSelects(["scene", "layer"]);
+
+		assert.equal(scene.disabled, false, "binding must enable the root select");
+		assert.equal(layer.disabled, false, "binding must enable chained selects too");
+	});
+
 	test("a root select lists every item of its type", () => {
 		const pi = loadPropertyInspector();
 		const scene = pi.element("scene", new FakeSelect());
