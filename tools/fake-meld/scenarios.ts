@@ -61,15 +61,20 @@ function vertical(): Scenario {
 	return b.build("vertical", "Vertical canvas on: property inspectors must filter the [Vertical] scenes");
 }
 
-/** Effects addressed by the historical `<layerId>-<index>` id form. */
+/**
+ * A session an upgraded profile would meet: the effects are published under
+ * their real ids (Meld never publishes any other form), while a pre-migration
+ * profile still stores them as `<layerId>-<index>`. Use
+ * {@link legacyEffectId} to build those settings.
+ */
 function legacyEffectIds(): Scenario {
 	const b = new SessionBuilder("legacy-effect-ids");
 	const scene = b.scene("Legacy", { current: true });
 	const layer = b.layer(scene, "Camera");
-	b.effect(layer, "Brightness Contrast", { legacyId: 0 });
-	b.effect(layer, "Blur", { legacyId: 1, enabled: false });
+	b.effect(layer, "Brightness Contrast");
+	b.effect(layer, "Blur", { enabled: false });
 	b.track("Microphone", { gain: 0.9 });
-	return b.build("legacy-effect-ids", "Effects keyed as <layerId>-<index>, as upgraded profiles store them");
+	return b.build("legacy-effect-ids", "Effects an upgraded profile addresses as <layerId>-<index>");
 }
 
 /** Live output running, with the replay clip's track present. */

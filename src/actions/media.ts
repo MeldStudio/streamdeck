@@ -21,9 +21,14 @@ const ICON_RESTART = "assets/Media/Key Icon/media-controls-skip-back";
 @action({ UUID: "co.meldstudio.streamdeck.media" })
 export class Media extends MeldAction<MediaSettings> {
 	/** Reflects the media layer's playback state on the key. */
-	protected render({ action, settings, session }: RenderArgs<MediaSettings>): Promise<void> {
+	protected async render({ action, settings, session, reason }: RenderArgs<MediaSettings>): Promise<void> {
+		// With no snapshot there is nothing authoritative to show; keep the last
+		// icon rather than flashing "paused" through a reconnect blip.
+		if (!session.isPresent && reason !== "willAppear") {
+			return;
+		}
 		const layer = this.#findMediaLayer(settings, session);
-		return this.setKeyImage(action, this.#iconFor(settings.action, layer?.isPlaying ?? false));
+		await this.setKeyImage(action, this.#iconFor(settings.action, layer?.isPlaying ?? false));
 	}
 
 	/** @inheritdoc */

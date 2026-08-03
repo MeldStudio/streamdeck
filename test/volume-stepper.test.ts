@@ -172,17 +172,77 @@ describe("VolumeStepper", () => {
 		}
 	});
 
-	test("a matching echo confirms the optimistic value", async () => {
+	test("a matching echo confirms and releases the optimistic value", async () => {
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
-		await sleep(60);
+		await sleep(80);
 		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
-
-		// The fake echoes automatically because the observer is registered; the dial
-		// should be showing the confirmed value and stay there.
-		const settled = dial.feedback?.value;
-		await sleep(900); // past the 750ms optimistic TTL
-		assert.equal(dial.feedback?.value, settled, "a confirmed value must not change at TTL expiry");
 		assert.equal(server.gainOf(trackId), sent);
+
+		// Confirmation is only observable through what happens next: with the
+		// optimistic value released, an unrelated gain change from Meld repaints
+		// immediately. If it were still pending, the echo guard would discard that
+		// update and the dial would sit on the stale value until the TTL expired.
+		dial.reset();
+		server.setGain(trackId, 0.25);
+		await sleep(80);
+
+		assert.equal(
+			dial.feedback?.value,
+			"-12 dB",
+			"a confirmed rotation must not leave an optimistic value blocking later updates",
+		);
+
+		// And the next tick must build on Meld's value, not the released one.
+		const before = server.callsTo("setGain").length;
+		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
+		await sleep(80);
+		const next = server.callsTo("setGain")[before].args[1] as number;
+		assert.ok(next > 0.25 && next < 0.35, `the next tick should step up from 0.25, got ${next}`);
+	});
+
+	test("an unconfirmed rotation expires back to authoritative state", async () => {
+		// If Meld never confirms a rotation, the optimistic value must not sit on the
+		// touchscreen indefinitely: at TTL it is dropped and the dial repaints from
+		// the last authoritative gain. Here the echo is delayed past the 750ms TTL,
+		// so the repaint is observable before the confirmation finally lands.
+		const slow = new FakeMeld(audioScenario(0.5).scenario, { echoDelayMs: 1_500 });
+		const slowPort = await slow.listen(0);
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowTrack = audioScenario(0.5).trackId;
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = slowConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			slowConnection.connect();
+			await ready;
+
+			const slowAction = new VolumeStepper(slowConnection);
+			const slowDial = new FakeActionInstance<Settings>("expiry-dial", { track: slowTrack, stepsize: "6" });
+			mount(slowAction, [slowDial]);
+			await slowAction.onWillAppear(willAppear(slowDial, { track: slowTrack, stepsize: "6" }, "Encoder") as never);
+			await sleep(1_700); // let the observer's delayed hydration land
+			const authoritative = slowDial.feedback?.value;
+			assert.ok(authoritative, "the dial should be hydrated before the rotation");
+
+			slowAction.onDialRotate(dialRotate(slowDial, { track: slowTrack, stepsize: "6" }, 1) as never);
+			await sleep(60);
+			assert.notEqual(slowDial.feedback?.value, authoritative, "the rotation paints optimistically");
+
+			// Past the TTL, still before the echo.
+			await sleep(900);
+			assert.equal(
+				slowDial.feedback?.value,
+				authoritative,
+				"an unconfirmed value must expire back to the authoritative reading",
+			);
+		} finally {
+			slowConnection.dispose();
+			await slow.close();
+		}
 	});
 
 	test("an external gain change in Meld repaints the dial", async () => {
@@ -191,28 +251,42 @@ describe("VolumeStepper", () => {
 		assert.equal(dial.feedback?.value, "-12 dB", "the dial should follow Meld's own fader");
 	});
 
-	test("mute state comes from the fast gainUpdated path", async () => {
-		server.setMuted(trackId, true);
+	test("mute state comes from the fast gainUpdated path, ahead of the snapshot", async () => {
+		// Meld emits gainUpdated immediately but republishes the session behind a
+		// debounced save, so the fast path is the fresher of the two. Here the
+		// snapshot still reports unmuted while the event says muted: the dial must
+		// follow the event, or it shows the wrong icon for the whole debounce.
+		const snapshotMuted = () => (server.session.items[trackId] as { muted: boolean }).muted;
+		assert.equal(snapshotMuted(), false, "the snapshot starts unmuted");
+
+		server.emitGainOnly(trackId, server.gainOf(trackId) as number, true);
 		await sleep(80);
+
+		assert.equal(snapshotMuted(), false, "the snapshot is deliberately still stale");
 		const painted = dial.feedback;
 		assert.ok(painted?.icon?.includes("audioMute"), `expected the muted icon, got ${painted?.icon}`);
 		assert.ok(painted?.indicator?.bar_bg_c.includes("666666"), "a muted track shows a grey bar");
 
-		server.setMuted(trackId, false);
+		// And the reverse: the event says unmuted, so the icon comes back.
+		server.emitGainOnly(trackId, server.gainOf(trackId) as number, false);
 		await sleep(80);
 		assert.ok(!dial.feedback?.icon?.includes("audioMute"), "unmuting should restore the audio icon");
 	});
 
 	test("a blank step size still steps by the inspector default", async () => {
+		const gainBefore = server.gainOf(trackId) as number;
 		const before = server.callsTo("setGain").length;
 		// A user who clears the StepSize field persists "", which must not make the
-		// dial a silent no-op.
+		// dial a silent no-op — sending the unchanged gain counts as one.
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "" }, 1) as never);
-		await sleep(60);
+		await sleep(80);
 
 		const calls = server.callsTo("setGain");
-		assert.equal(calls.length, before + 1, "a blank step size must still move the gain");
-		assert.notEqual(calls.at(-1)?.args[1], server.gainOf(trackId) === 0 ? 0 : undefined);
+		assert.equal(calls.length, before + 1, "a blank step size must still send a gain");
+		const sent = calls.at(-1)?.args[1] as number;
+		assert.ok(sent > gainBefore, `the gain must actually move from ${gainBefore}, got ${sent}`);
+		// One 1 dB tick from mid-scale, not a jump to a rail.
+		assert.ok(sent < 0.6, `a single default-sized tick must stay small, got ${sent}`);
 	});
 
 	test("a dial bound to no track paints the unknown indicator", async () => {

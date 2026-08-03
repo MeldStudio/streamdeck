@@ -6,7 +6,7 @@
 // through the track observer — which is what these tests pin down.
 
 import assert from "node:assert/strict";
-import { after, before, beforeEach, describe, test } from "node:test";
+import { after, afterEach, before, beforeEach, describe, test } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { Replay } from "../src/actions/replay.ts";
@@ -16,6 +16,21 @@ import { SessionBuilder } from "../tools/fake-meld/session.ts";
 import { FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
 
 type Settings = { action?: string };
+
+/**
+ * Waits for a condition instead of guessing how long a round-trip takes.
+ * @param condition Polled until it returns true.
+ * @param timeoutMs How long to wait before giving up.
+ */
+async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (!condition()) {
+		if (Date.now() > deadline) {
+			throw new Error("timed out waiting for condition");
+		}
+		await sleep(10);
+	}
+}
 
 /** A session containing the replay clip's layer and its audio track. */
 function replayScenario(gain: number): { scenario: ReturnType<SessionBuilder["build"]>; trackId: string } {
@@ -63,7 +78,19 @@ describe("Replay", () => {
 		key = new FakeActionInstance<Settings>("replay-key", { action: "volume_up" });
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, { action: "volume_up" }) as never);
-		await sleep(80);
+		// The action learns the gain from the observer registration round-trip. Wait
+		// for that to actually land rather than guessing a duration, so a slow
+		// machine cannot turn a passing test into a false failure.
+		await waitFor(() => server.callsTo("registerTrackObserver").length > 0);
+		await sleep(20);
+	});
+
+	afterEach(async () => {
+		// Replay's observer context is a constant shared by every replay key, and
+		// the registry lives on the connection, so a context left registered makes
+		// the next test's registration a no-op and its gain never arrives.
+		await action.onWillDisappear({ action: key, payload: { settings: {} } } as never);
+		await sleep(20);
 	});
 
 	test("observes the replay track so its gain is known before any press", async () => {

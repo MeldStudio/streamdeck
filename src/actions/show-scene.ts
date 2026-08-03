@@ -24,8 +24,11 @@ export class ShowScene extends MeldAction<ShowSceneSettings> {
 	/** @inheritdoc */
 	override onKeyUp(ev: KeyUpEvent<ShowSceneSettings>): void {
 		const scene = ev.payload.settings.scene;
-		// Only act (and light the key) when the request can actually reach Meld.
-		if (!scene || !this.meld.ready) {
+		// Only act (and light the key) when the request can actually reach Meld and
+		// name a scene it still has: `showScene` for an id from a previous instance
+		// is a silent no-op that is never echoed, so lighting the key here would
+		// fake a confirmation the session never gives back.
+		if (!scene || !this.meld.ready || !this.session().has(scene)) {
 			return;
 		}
 		// Optimistically light the key; the next session update confirms it.

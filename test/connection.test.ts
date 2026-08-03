@@ -160,17 +160,22 @@ describe("MeldConnection", () => {
 		const updates: unknown[] = [];
 		const off = connection.on("sessionChanged", (session) => updates.push(session));
 
-		const scene = Object.entries(server.session.items).find(([, item]) => item.type === "scene")?.[0];
-		assert.ok(scene, "the scenario should contain a scene");
-		server.showScene(scene);
+		// Mute a track rather than switching to the already-current scene: the
+		// snapshot must be observed changing, not merely re-asserting what it said.
+		const track = Object.entries(server.session.items).find(([, item]) => item.type === "track")?.[0];
+		assert.ok(track, "the scenario should contain a track");
+		const mutedBefore = (connection.session?.items[track] as { muted: boolean }).muted;
+		assert.equal(mutedBefore, false, "the track starts unmuted");
+
+		server.setMuted(track, true);
 		await sleep(120);
 
 		off();
 		assert.equal(updates.length, 1, "a session change in Meld must reach listeners");
 		assert.equal(
-			(connection.session?.items[scene] as { current?: boolean })?.current,
+			(connection.session?.items[track] as { muted: boolean }).muted,
 			true,
-			"the connection's snapshot should reflect the change",
+			"the connection's snapshot must carry the new value, not the hydration one",
 		);
 	});
 
@@ -227,6 +232,12 @@ describe("MeldConnection", () => {
 				stalled.acceptedConnections >= 2,
 				`the watchdog should have abandoned and redialled; the stalled peer saw ${stalled.acceptedConnections} connection(s)`,
 			);
+			// Abandoning means closing: leaving the dead sockets open would pile up a
+			// connection per retry against a peer that never answers.
+			assert.ok(
+				stalled.clientCount <= 1,
+				`abandoned sockets must be closed; ${stalled.clientCount} were still open`,
+			);
 		} finally {
 			// Release the port even when an assertion fails, so one failure does not
 			// cascade into every test that follows.
@@ -241,17 +252,24 @@ describe("MeldConnection", () => {
 	test("abandons and retries a peer that exposes no meld object", async () => {
 		await dropInstance();
 
+		// A peer that completes the handshake but exposes no `meld` object must be
+		// rejected by that branch specifically. This connection's watchdog is set
+		// far beyond the test window so it cannot rescue the case and disguise a
+		// missing retry.
 		const wrongPeer = new FakeMeld(tinyScenario("wrong").scenario, { omitMeldObject: true });
-		await wrongPeer.listen(port);
+		const wrongPort = await wrongPeer.listen(0);
+		const probe = new MeldConnection({ port: wrongPort, handshakeTimeoutMs: 60_000, reconnectMinMs: 100 });
 
 		try {
+			probe.connect();
 			await sleep(1_200);
-			assert.equal(connection.ready, false, "a peer without a meld object must never report ready");
+			assert.equal(probe.ready, false, "a peer without a meld object must never report ready");
 			assert.ok(
 				wrongPeer.acceptedConnections >= 2,
 				`the wrong peer should have been redialled; it saw ${wrongPeer.acceptedConnections} connection(s)`,
 			);
 		} finally {
+			probe.dispose();
 			await wrongPeer.close();
 		}
 

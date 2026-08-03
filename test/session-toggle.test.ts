@@ -16,7 +16,7 @@ import { ToggleLayer } from "../src/actions/toggle-layer.ts";
 import { ToggleMute } from "../src/actions/toggle-mute.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
-import { type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
+import { legacyEffectId, type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
 import { FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
 
 /** Two scenes, each with a layer; the first layer carries an effect. */
@@ -162,6 +162,48 @@ describe("session toggles", () => {
 		assert.deepEqual(key.states, [], "no state should be painted for a nonexistent item");
 	});
 
+	test("force mode without a direct setter never toggles away from the desired state", async () => {
+		// ToggleLayer has no setDirect, so force mode goes through the compare-then-
+		// toggle path. Forcing "show" on a layer that is already visible must do
+		// nothing: toggling here would hide the very layer the user asked to show.
+		const settings = { scene: ids.sceneA, layer: ids.layerA, action: "show" };
+		const action = new ToggleLayer(connection);
+		const key = new FakeActionInstance("k", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(40);
+		assert.equal(key.state, 1, "the layer starts visible");
+
+		action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(120);
+
+		assert.equal(server.callsTo("toggleLayer").length, 0, "forcing the state it is already in must not toggle");
+		assert.equal(
+			(server.session.items[ids.layerA] as { visible: boolean }).visible,
+			true,
+			"the layer must still be visible",
+		);
+		assert.equal(key.state, 1);
+	});
+
+	test("force mode without a direct setter toggles when the state differs", async () => {
+		// The complement: forcing "show" on a hidden layer must toggle exactly once.
+		const settings = { scene: ids.sceneB, layer: ids.layerB, action: "show" };
+		const action = new ToggleLayer(connection);
+		const key = new FakeActionInstance("k", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(40);
+		assert.equal(key.state, 0, "the layer starts hidden");
+
+		action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(120);
+
+		assert.equal(server.callsTo("toggleLayer").length, 1, "a differing state must toggle once");
+		assert.equal((server.session.items[ids.layerB] as { visible: boolean }).visible, true);
+		assert.equal(key.state, 1);
+	});
+
 	test("force mode is idempotent and does not fake a state for a missing track", async () => {
 		const action = new ToggleMute(connection);
 		const present = { track: ids.track, action: "mute" };
@@ -191,6 +233,34 @@ describe("session toggles", () => {
 		await sleep(120);
 		assert.equal(server.invocations.length, 0, "nothing should be sent for a missing track");
 		assert.deepEqual(ghostKey.states, [], "no state should be painted for a missing track");
+	});
+
+	test("an upgraded profile's <layerId>-<index> effect id still works", async () => {
+		// Meld only ever publishes an effect's real id, but profiles written before
+		// effects had stable ids store this form — and Meld still accepts it as a
+		// toggleEffect argument. Treating it as "missing" would leave those keys
+		// permanently dead after the upgrade.
+		const settings = {
+			scene: ids.sceneA,
+			layer: ids.layerA,
+			effect: legacyEffectId(ids.layerA, 0),
+		};
+		const action = new ToggleEffect(connection);
+		const key = new FakeActionInstance("k", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(40);
+		assert.equal(key.state, 1, "the key must reflect the effect the legacy id points at");
+
+		action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(120);
+
+		assert.equal(server.callsTo("toggleEffect").length, 1, "the press must reach Meld");
+		assert.equal(
+			(server.session.items[ids.effectA] as { enabled: boolean }).enabled,
+			false,
+			"the effect the legacy id refers to must actually toggle",
+		);
 	});
 
 	test("an unconfigured key neither paints nor sends", async () => {

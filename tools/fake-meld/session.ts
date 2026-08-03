@@ -97,12 +97,27 @@ export function itemId(seed: string): string {
 	return `${block("a")}${block("b")}${block("c")}${block("d")}`.toUpperCase();
 }
 
+/**
+ * The id form the pre-migration inspector stored for an effect. Upgraded
+ * profiles still carry it, and Meld still accepts it as a `toggleEffect`
+ * argument, but it never appears as a key in the session snapshot.
+ * @param layerId Owning layer id.
+ * @param index The effect's position within that layer.
+ */
+export function legacyEffectId(layerId: string, index: number): string {
+	return `${layerId}-${index}`;
+}
+
 /** Fluent builder that assembles a scenario's snapshot in Meld's own shape. */
 export class SessionBuilder {
 	readonly #items: Record<string, FakeItem> = {};
 	readonly #gains: Record<string, number> = {};
 	readonly #namespace: string;
+	// Meld walks the horizontal and vertical scene models in separate loops, each
+	// numbering from 0, so a vertical twin can share an index with a horizontal
+	// scene. Two counters reproduce that rather than inventing unique indices.
 	#sceneIndex = 0;
+	#verticalSceneIndex = 0;
 
 	/**
 	 * @param namespace Salts every generated id. Two builders with different
@@ -132,7 +147,7 @@ export class SessionBuilder {
 			current: options.current ?? false,
 			staged: options.staged ?? false,
 			vertical: options.vertical ?? false,
-			index: this.#sceneIndex++,
+			index: options.vertical ? this.#verticalSceneIndex++ : this.#sceneIndex++,
 		};
 		return id;
 	}
@@ -191,13 +206,17 @@ export class SessionBuilder {
 
 	/**
 	 * Adds an effect to a layer.
+	 *
+	 * Effects are always keyed by a real id, because that is all Meld publishes:
+	 * `effectsToMap` uses `effect->idString()`. The historical
+	 * `<layerId>-<index>` form exists only in old Stream Deck settings, which is
+	 * why Meld accepts it as a `toggleEffect` argument — see {@link legacyEffectId}.
 	 * @param parent Owning layer id.
 	 * @param name Effect display name.
-	 * @param options `enabled` state, and `legacyId` to use the historical
-	 * `<layerId>-<index>` id form that older profiles stored.
+	 * @param options `enabled` state.
 	 */
-	effect(parent: string, name: string, options: { enabled?: boolean; legacyId?: number } = {}): string {
-		const id = options.legacyId === undefined ? this.#id(`effect:${parent}:${name}`) : `${parent}-${options.legacyId}`;
+	effect(parent: string, name: string, options: { enabled?: boolean } = {}): string {
+		const id = this.#id(`effect:${parent}:${name}`);
 		this.#items[id] = { type: "effect", name, parent, enabled: options.enabled ?? true };
 		return id;
 	}

@@ -230,6 +230,28 @@ export class FakeMeld {
 		this.#emitGain(trackId);
 	}
 
+	/**
+	 * Emits `gainUpdated` without touching the session snapshot.
+	 *
+	 * This models the real timing rather than a shortcut: Meld's mapper emits
+	 * `gainUpdated` the moment a track's gain or mute changes, while the session
+	 * snapshot is republished behind a debounced save. So the fast path genuinely
+	 * does arrive ahead of a snapshot that still reports the old value, and the
+	 * plugin has to prefer it.
+	 * @param trackId Track the update concerns.
+	 * @param gain Gain to report.
+	 * @param muted Mute state to report.
+	 */
+	emitGainOnly(trackId: string, gain: number, muted: boolean): void {
+		this.#gains[trackId] = gain;
+		this.#broadcast({
+			type: Msg.signal,
+			object: "meld",
+			signal: SIG_GAIN_UPDATED,
+			args: [trackId, gain, muted],
+		});
+	}
+
 	/** Mutes or unmutes a track from Meld's side. */
 	setMuted(trackId: string, muted: boolean): void {
 		const track = this.#trackOrNull(trackId);
@@ -322,19 +344,22 @@ export class FakeMeld {
 				return null;
 			}
 			case "showStagedScene": {
-				// Current and staged swap places.
+				// The QML swaps unconditionally: currentScene = stagedScene and
+				// stagedScene = the old current. With nothing staged that means the
+				// session is left with no current scene, which is exactly the state a
+				// dial that staged something Meld refused can reach — so the fake must
+				// reproduce it rather than quietly declining.
 				const scenes = Object.values(this.#session.items).filter((i): i is FakeScene => i.type === "scene");
 				const current = scenes.find((s) => s.current);
 				const staged = scenes.find((s) => s.staged);
-				if (!staged) {
-					return null;
-				}
 				if (current) {
 					current.current = false;
 					current.staged = true;
 				}
-				staged.staged = false;
-				staged.current = true;
+				if (staged) {
+					staged.staged = false;
+					staged.current = true;
+				}
 				this.#publishSession();
 				return null;
 			}

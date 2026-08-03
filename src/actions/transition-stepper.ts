@@ -135,9 +135,12 @@ export class TransitionStepper extends MeldAction<JsonObject> {
 
 	/** Rebuilds the scene list and staged selection from a session snapshot. */
 	#rebuild(session: MeldSession): void {
+		// Vertical-canvas twins are excluded: Meld resolves `setStagedScene` through
+		// the horizontal scene model only (unlike `showScene`), so staging one is a
+		// silent no-op and the dial would appear to select a scene it cannot reach.
 		const scenes = session
 			.scenes()
-			.filter((scene) => !scene.name.includes("(linked)"))
+			.filter((scene) => !scene.vertical && !scene.name.includes("(linked)"))
 			.sort((a, b) => a.index - b.index);
 		this.#scenes = scenes
 			.filter((scene) => !scene.current)
