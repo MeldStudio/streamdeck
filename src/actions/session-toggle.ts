@@ -6,6 +6,14 @@ import type { JsonObject } from "@elgato/utils";
 
 import type { MeldSession } from "../meld/index.js";
 import { MeldAction, type RenderArgs } from "./base.js";
+import { OptimisticStore } from "./optimistic.js";
+
+/**
+ * How long a press keeps precedence over the session snapshot. Meld republishes
+ * behind a ~600 ms retriggerable autosave, so this has to outlast a burst of
+ * concurrent edits while still self-correcting a press that never took effect.
+ */
+const TOGGLE_CONFIRM_TTL_MS = 3_000;
 
 /**
  * Shared behaviour for the four "toggle a boolean session property" actions:
@@ -19,6 +27,16 @@ import { MeldAction, type RenderArgs } from "./base.js";
  * no-op rather than an accidental unmute.
  */
 export abstract class SessionToggleAction<T extends JsonObject> extends MeldAction<T> {
+	/**
+	 * The value each pending press is waiting for. Meld confirms these through the
+	 * republished session, which rides a retriggerable autosave, so the wait is
+	 * far longer than a gain echo; an unconfirmed press expires back to whatever
+	 * the session says.
+	 */
+	readonly #pending = new OptimisticStore<boolean>(TOGGLE_CONFIRM_TTL_MS, () =>
+		void this.renderAll("sessionChanged"),
+	);
+
 	/** Key state shown when the configured item is absent from the session. */
 	protected abstract readonly missingItemState: 0 | 1;
 
@@ -79,19 +97,35 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		if (!this.meld.ready) {
 			return;
 		}
-		const current = this.currentValue(settings, this.session());
+		// Meld only republishes the session behind its debounced autosave, so the
+		// snapshot still describes the state before any press made in the last
+		// several hundred milliseconds. A pending press is therefore the better
+		// answer: comparing against the stale snapshot would make a second press
+		// toggle again and undo the first — pressing "show" twice would hide the
+		// layer the user asked to show.
+		const authoritative = this.currentValue(settings, this.session());
+		const pending = this.#pending.get(ev.action.id);
+		const current = pending ?? authoritative;
 		if (current === null && !this.actsWithUnknownState(settings)) {
 			return;
 		}
 
 		const mode = this.mode(settings);
 		if (!mode || mode === "toggle") {
+			const next = current === null ? null : !current;
+			this.#apply(ev.action.id, next);
+			if (next !== null) {
+				// Paint the press straight away; the confirmation is hundreds of
+				// milliseconds behind and the key would otherwise look unresponsive.
+				void this.setKeyState(ev.action, this.valueToKeyState(next));
+			}
 			this.toggle(settings);
 			return;
 		}
 
 		const desired = mode === this.forceOnValue;
 		if (this.setDirect(settings, desired)) {
+			this.#apply(ev.action.id, desired);
 			void this.setKeyState(ev.action, this.valueToKeyState(desired));
 			return;
 		}
@@ -105,9 +139,28 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 
 		// No direct setter: toggle only if we are not already in the desired state.
 		if (current !== desired) {
+			this.#apply(ev.action.id, desired);
+			void this.setKeyState(ev.action, this.valueToKeyState(desired));
 			this.toggle(settings);
 		} else {
 			void this.setKeyState(ev.action, this.valueToKeyState(current));
+		}
+	}
+
+	/** @inheritdoc */
+	protected override onDisappear(context: string): void {
+		this.#pending.clear(context);
+	}
+
+	/**
+	 * Records the value a press is waiting for, so a follow-up press reasons from
+	 * it rather than from the not-yet-republished snapshot.
+	 * @param context Context id.
+	 * @param value The value the press should produce, or `null` when unknown.
+	 */
+	#apply(context: string, value: boolean | null): void {
+		if (value !== null) {
+			this.#pending.set(context, value);
 		}
 	}
 
@@ -122,9 +175,15 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		}
 
 		const value = this.currentValue(settings, session);
-		if (value === null) {
+		const pending = this.#pending.get(action.id);
+		if (pending !== undefined && value === pending) {
+			// The snapshot caught up with the press; stop overriding it.
+			this.#pending.clear(action.id);
+		}
+		const shown = this.#pending.get(action.id) ?? value;
+		if (shown === null) {
 			return void this.setKeyState(action, this.missingItemState);
 		}
-		await this.setKeyState(action, this.valueToKeyState(value));
+		await this.setKeyState(action, this.valueToKeyState(shown));
 	}
 }

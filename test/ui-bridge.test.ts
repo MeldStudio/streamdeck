@@ -110,7 +110,7 @@ describe("ui bridge", () => {
 	test("pushes an update when the session changes in Meld", async () => {
 		pushes.length = 0;
 		server.showScene(first.sceneId);
-		await sleep(120);
+		await sleep(800);
 
 		assert.ok(pushes.length >= 1, "a session change must reach open inspectors");
 		assert.equal(pushes.at(-1)?.connected, true);

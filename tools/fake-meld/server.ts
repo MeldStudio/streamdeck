@@ -103,11 +103,12 @@ export type FakeMeldOptions = {
 	echoDelayMs?: number;
 	/**
 	 * Republish the session snapshot behind a retriggerable debounce of this many
-	 * milliseconds, as Meld does: `filteredMap` is only rebuilt on `sessionSaved`,
-	 * which rides a 600 ms autosave timer that any further session edit resets.
-	 * Tests that care about how long a key waits for confirmation should set this
-	 * to {@link MELD_SESSION_DEBOUNCE_MS}; the default republishes immediately so
-	 * tests about behaviour rather than timing stay fast.
+	 * milliseconds. Defaults to {@link MELD_SESSION_DEBOUNCE_MS}, which is what
+	 * Meld does: `filteredMap` is only rebuilt on `sessionSaved`, riding an
+	 * autosave timer that any further edit resets. Publishing instantly would let
+	 * a key that cannot repaint until the snapshot arrives look responsive, and
+	 * would hide a press that reasons from the pre-press state. Set 0 only where
+	 * the confirmation timing genuinely does not matter to the test.
 	 */
 	sessionDebounceMs?: number;
 	/** Called for every method invocation, for logging. */
@@ -580,7 +581,7 @@ export class FakeMeld {
 	 * snapshot, delayed until the burst stops.
 	 */
 	#publishSession(): void {
-		const delay = this.#options.sessionDebounceMs ?? 0;
+		const delay = this.#options.sessionDebounceMs ?? MELD_SESSION_DEBOUNCE_MS;
 		if (delay <= 0) {
 			this.#publish(PROP_SESSION, SIG_SESSION_CHANGED, this.#session);
 			return;

@@ -281,6 +281,48 @@ describe("session toggles", () => {
 		assert.equal((server.session.items[ids.effectA3] as { enabled: boolean }).enabled, true);
 	});
 
+	test("pressing 'show' twice inside Meld's debounce does not hide the layer", async () => {
+		// Meld republishes the session behind its autosave, so a second press lands
+		// while the snapshot still says "hidden". Reasoning from that stale value
+		// would toggle again and undo the first press — the user asks to show a
+		// layer twice and it goes dark.
+		const settings = { scene: ids.sceneB, layer: ids.layerB, action: "show" };
+		const action = new ToggleLayer(connection);
+		const key = new FakeActionInstance("k", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(60);
+		assert.equal(key.state, 0, "the layer starts hidden");
+
+		action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(200);
+		action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(900);
+
+		assert.equal(
+			(server.session.items[ids.layerB] as { visible: boolean }).visible,
+			true,
+			"two 'show' presses must leave the layer visible",
+		);
+		assert.equal(key.state, 1);
+	});
+
+	test("a toggle press repaints immediately rather than waiting for the snapshot", async () => {
+		// The confirmation is hundreds of milliseconds away; a key that only
+		// repaints then reads as unresponsive.
+		const settings = { scene: ids.sceneA, layer: ids.layerA };
+		const action = new ToggleLayer(connection);
+		const key = new FakeActionInstance("k", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(60);
+		assert.equal(key.state, 1, "the layer starts visible");
+
+		action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(50); // well inside the debounce
+		assert.equal(key.state, 0, "the key must follow the press without waiting for Meld");
+	});
+
 	test("an unconfigured key neither paints nor sends", async () => {
 		const action = new ToggleLayer(connection);
 		const key = new FakeActionInstance("k", {});

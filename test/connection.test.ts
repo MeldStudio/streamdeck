@@ -168,7 +168,7 @@ describe("MeldConnection", () => {
 		assert.equal(mutedBefore, false, "the track starts unmuted");
 
 		server.setMuted(track, true);
-		await sleep(120);
+		await sleep(800);
 
 		off();
 		assert.equal(updates.length, 1, "a session change in Meld must reach listeners");

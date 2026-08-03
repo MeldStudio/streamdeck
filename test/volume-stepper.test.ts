@@ -305,7 +305,7 @@ describe("VolumeStepper", () => {
 		// deduped on "same context, same track" would never be re-sent, leaving the
 		// dial frozen with no gain updates for the rest of the connection.
 		server.loadScenario(audioScenario(0.4).scenario);
-		await sleep(150);
+		await sleep(800);
 
 		assert.ok(
 			server.callsTo("registerTrackObserver").length >= 2,
