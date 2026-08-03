@@ -41,8 +41,11 @@ export class Media extends MeldAction<MediaSettings> {
 	/** Reflects the media layer's playback state on the key. */
 	protected async render({ action, settings, session, reason }: RenderArgs<MediaSettings>): Promise<void> {
 		// With no snapshot there is nothing authoritative to show; keep the last
-		// icon rather than flashing "paused" through a reconnect blip.
-		if (!session.isPresent && reason !== "willAppear") {
+		// icon rather than flashing "paused" through a reconnect blip. A settings
+		// change is different: the user just chose a different press mode, and for
+		// the fixed-icon modes that choice alone determines the artwork, so the key
+		// must not stay showing the previous mode until Meld comes back.
+		if (!session.isPresent && reason !== "willAppear" && reason !== "didReceiveSettings") {
 			return;
 		}
 		const layer = this.#findMediaLayer(settings, session);

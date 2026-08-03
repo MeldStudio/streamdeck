@@ -14,7 +14,7 @@ import { ShowScene } from "../src/actions/show-scene.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
 import { type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
-import { FakeActionInstance, keyEvent, press, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { FakeActionInstance, keyEvent, mount, press, retarget, willAppear } from "./helpers/fake-stream-deck.ts";
 
 /** A scene with a playing media layer. */
 function build(): { scenario: Scenario; ids: Record<string, string> } {
@@ -23,8 +23,9 @@ function build(): { scenario: Scenario; ids: Record<string, string> } {
 	const other = b.scene("Break");
 	const third = b.scene("Interlude");
 	const clip = b.layer(scene, "Clip", { mediaSource: "clip.mp4", isPlaying: true });
+	const clipB = b.layer(scene, "Clip B", { mediaSource: "other.mp4", isPlaying: true });
 	const track = b.track("Microphone", { gain: 0.6 });
-	return { scenario: b.build("ms", "media"), ids: { scene, other, third, clip, track } };
+	return { scenario: b.build("ms", "media"), ids: { scene, other, third, clip, clipB, track } };
 }
 
 describe("Media and ShowScene", () => {
@@ -134,6 +135,98 @@ describe("Media and ShowScene", () => {
 			const members = slow.callsTo("callFunction").map((c) => c.args[1]);
 			assert.deepEqual(members, ["pause", "play"], "the second press must resume, not pause again");
 			assert.ok(key.image?.includes("pause"), "and the key shows the playing state it asked for");
+		} finally {
+			slowConnection.dispose();
+			await slow.close();
+		}
+	});
+
+	test("a pending press is dropped when the key is retargeted to another layer", async () => {
+		// The inspector can retarget a key seconds after a press, while the first
+		// clip's confirmation is still outstanding. Carrying that pending value over
+		// would show the inverse of the new clip's state and send the wrong command.
+		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slowPort = await slow.listen(0);
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowIds = build().ids;
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = slowConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			slowConnection.connect();
+			await ready;
+
+			const first = { scene: slowIds.scene, layer: slowIds.clip, action: "toggle" };
+			const action = new Media(slowConnection);
+			const key = new FakeActionInstance("m", first);
+			mount(action, [key]);
+			await action.onWillAppear(willAppear(key, first) as never);
+			await sleep(60);
+
+			await press(action, key, first); // clip -> paused (pending, unconfirmed)
+			await sleep(60);
+			slow.invocations.length = 0;
+
+			// Retarget to the second media layer, which is playing.
+			const second = { scene: slowIds.scene, layer: slowIds.clipB, action: "toggle" };
+			await retarget(action, key, second);
+			await sleep(60);
+			assert.ok(key.image?.includes("pause"), `the new clip is playing, got ${key.image}`);
+
+			await press(action, key, second);
+			await sleep(80);
+			assert.deepEqual(
+				slow.callsTo("callFunction").at(-1)?.args,
+				[slowIds.clipB, "pause"],
+				"the press must act on the new layer's real state",
+			);
+		} finally {
+			slowConnection.dispose();
+			await slow.close();
+		}
+	});
+
+	test("a media press holds its icon across a retriggered autosave", async () => {
+		// The optimistic TTL has to outlast Meld's retriggerable debounce, or the
+		// key flips back to the pre-press icon and then forward again.
+		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slowPort = await slow.listen(0);
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowIds = build().ids;
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = slowConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			slowConnection.connect();
+			await ready;
+
+			const settings = { scene: slowIds.scene, layer: slowIds.clip, action: "toggle" };
+			const action = new Media(slowConnection);
+			const key = new FakeActionInstance("m", settings);
+			mount(action, [key]);
+			await action.onWillAppear(willAppear(key, settings) as never);
+			await sleep(60);
+
+			await press(action, key, settings); // playing -> paused
+			key.reset();
+			for (let i = 0; i < 6; i++) {
+				slow.setMuted(slowIds.track, i % 2 === 0);
+				await sleep(150);
+			}
+			await sleep(800);
+
+			assert.ok(
+				!key.images.some((image) => image?.includes("pause")),
+				`the key must not flip back to the pre-press icon; painted ${JSON.stringify(key.images)}`,
+			);
 		} finally {
 			slowConnection.dispose();
 			await slow.close();

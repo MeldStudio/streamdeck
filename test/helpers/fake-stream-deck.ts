@@ -196,6 +196,22 @@ export function keyEvent<T extends JsonObject>(
 }
 
 /**
+ * Reconfigures a visible instance, as the property inspector does when the user
+ * changes a dropdown: Stream Deck persists the settings and delivers
+ * `didReceiveSettings` to the running action.
+ * @param action The action under test.
+ * @param instance The instance being reconfigured.
+ * @param settings The new settings.
+ */
+export async function retarget<T extends JsonObject>(
+	action: MeldAction<T>,
+	instance: FakeActionInstance<T>,
+	settings: T,
+): Promise<void> {
+	await action.onDidReceiveSettings(didReceiveSettings(instance, settings) as never);
+}
+
+/**
  * Presses a key: `keyDown` then `keyUp`, as the app always delivers them.
  *
  * Calling `onKeyUp` alone skips the dedupe-cache invalidation that every real

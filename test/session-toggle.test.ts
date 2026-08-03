@@ -17,7 +17,7 @@ import { ToggleMute } from "../src/actions/toggle-mute.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
 import { legacyEffectId, type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
-import { FakeActionInstance, keyEvent, press, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { FakeActionInstance, keyEvent, mount, press, retarget, willAppear } from "./helpers/fake-stream-deck.ts";
 
 /** Two scenes, each with a layer; the first layer carries an effect. */
 function build(namespace: string): {
@@ -29,6 +29,7 @@ function build(namespace: string): {
 	const sceneB = b.scene("B");
 	const layerA = b.layer(sceneA, "Camera", { visible: true });
 	const layerB = b.layer(sceneB, "Slides", { visible: false });
+	const layerC = b.layer(sceneA, "Lower Third", { visible: false });
 	// Three effects, so a legacy `<layerId>-<index>` id genuinely has to pick the
 	// right one. Their ids sort into a different order than the model order, which
 	// is exactly the trap: resolving by snapshot order would choose another effect.
@@ -38,7 +39,7 @@ function build(namespace: string): {
 	const track = b.track("Microphone", { gain: 0.7, muted: false });
 	return {
 		scenario: b.build(namespace, "toggles"),
-		ids: { sceneA, sceneB, layerA, layerB, effectA, effectA2, effectA3, track },
+		ids: { sceneA, sceneB, layerA, layerB, layerC, effectA, effectA2, effectA3, track },
 	};
 }
 
@@ -74,7 +75,10 @@ describe("session toggles", () => {
 		// is deterministic, so the ids are unchanged) to keep tests independent.
 		server.loadScenario(build("tog").scenario);
 		server.invocations.length = 0;
-		await sleep(40);
+		// Wait for the reloaded snapshot to actually reach the plugin: it rides the
+		// autosave debounce, so a shorter wait leaves each test reasoning from the
+		// previous one's state.
+		await sleep(700);
 	});
 
 	test("a layer key reflects the layer's visibility", async () => {
@@ -337,6 +341,63 @@ describe("session toggles", () => {
 		await press(action, key, settings);
 		await sleep(50); // well inside the debounce
 		assert.equal(key.state, 0, "the key must follow the press without waiting for Meld");
+	});
+
+	test("an unrelated repaint during the wait does not undo the press", async () => {
+		// Between the press and Meld's republished snapshot, anything else that
+		// triggers a render — a recording change, say — re-reads the stale
+		// `visible` and would light the key again unless the pending press wins.
+		const settings = { scene: ids.sceneA, layer: ids.layerA };
+		const action = new ToggleLayer(connection);
+		const key = new FakeActionInstance("k", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(60);
+		assert.equal(key.state, 1, "the layer starts visible");
+
+		await press(action, key, settings);
+		key.reset();
+		server.setRecording(true); // a non-session render, snapshot still stale
+		await sleep(150);
+
+		assert.ok(
+			!key.states.includes(1),
+			`the key must stay dark while the press is pending; painted ${JSON.stringify(key.states)}`,
+		);
+		server.setRecording(false);
+	});
+
+	test("a pending press is dropped when the key is retargeted", async () => {
+		// The inspector can point the key at a different layer while the first
+		// press is still unconfirmed; the old pending value must not describe it.
+		const first = { scene: ids.sceneB, layer: ids.layerB };
+		const action = new ToggleLayer(connection);
+		const key = new FakeActionInstance("k", first);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, first) as never);
+		await sleep(60);
+
+		await press(action, key, first); // layerB hidden -> visible (pending)
+		await sleep(60);
+		key.reset();
+
+		// layerC is hidden. If the pending "visible" leaked across the retarget the
+		// key would light for a layer that is not shown, and the next press would
+		// hide an already-hidden layer.
+		const second = { scene: ids.sceneA, layer: ids.layerC };
+		await retarget(action, key, second);
+		await sleep(60);
+
+		assert.equal(key.state, 0, "the key must show the new layer's own state, not the old pending one");
+		server.invocations.length = 0;
+
+		await press(action, key, second);
+		await sleep(800);
+		assert.equal(
+			(server.session.items[ids.layerC] as { visible: boolean }).visible,
+			true,
+			"and the press must reveal it, not hide it further",
+		);
 	});
 
 	test("an unconfigured key neither paints nor sends", async () => {
