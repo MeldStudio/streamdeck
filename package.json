@@ -8,7 +8,7 @@
 		"build": "rollup -c",
 		"watch": "rollup -c -w --watch.onEnd=\"streamdeck restart co.meldstudio.streamdeck\"",
 		"pack": "npm run build && streamdeck pack co.meldstudio.streamdeck.sdPlugin --force",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "tsc --noEmit && tsc -p test",
 		"test": "node --test"
 	},
 	"devDependencies": {

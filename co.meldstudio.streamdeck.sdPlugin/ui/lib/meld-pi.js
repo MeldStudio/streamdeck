@@ -156,30 +156,49 @@
 		bindSessionSelects(ids, keepFilter) {
 			const rebuild = () => {
 				let parent = "";
-				for (const id of ids) {
+				ids.forEach((id, position) => {
 					const el = document.getElementById(id);
 					if (!el) {
-						continue;
+						return;
 					}
 					const current = currentSettings[id] || "";
 					el.innerHTML = "";
 					el.disabled = false;
 					el.appendChild(option("[No Selection]", "", current === ""));
-					for (const item of itemsByType(session.items, id, parent, keepFilter)) {
-						el.appendChild(option(item.name, item.id, item.id === current));
+					// The first select lists all items of its type; each later one lists
+					// only children of the previous selection — and nothing at all while
+					// that selection is "[No Selection]", so a mismatched child can never
+					// be picked.
+					if (position === 0 || parent) {
+						for (const item of itemsByType(session.items, id, parent, keepFilter)) {
+							el.appendChild(option(item.name, item.id, item.id === current));
+						}
 					}
 					el.value = current;
-					parent = current;
-				}
+					if (el.selectedIndex === -1) {
+						// The stored value isn't in the (possibly refiltered) list — e.g. a
+						// child saved under a different parent. Show "[No Selection]"
+						// instead of a blank control, and don't filter children by it.
+						el.selectedIndex = 0;
+					}
+					parent = el.value;
+				});
 			};
 
-			ids.forEach((id) => {
+			ids.forEach((id, index) => {
 				const el = document.getElementById(id);
 				if (!el) {
 					return;
 				}
 				el.addEventListener("change", () => {
-					MeldPI.patchSettings({ [id]: el.value });
+					// Changing a parent invalidates every downstream selection (they were
+					// children of the old value); clear them in the same patch so settings
+					// never hold a mismatched chain like {scene: B, layer: <child of A>}.
+					const patch = { [id]: el.value };
+					for (const child of ids.slice(index + 1)) {
+						patch[child] = "";
+					}
+					MeldPI.patchSettings(patch);
 					rebuild();
 				});
 			});

@@ -5,9 +5,14 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 //
 // Vendored from Qt's qwebchannel.js and adapted to an ES module for use inside
-// the Node.js Stream Deck plugin. The only functional change from upstream is
-// the export at the bottom of the file; the protocol implementation is verbatim
-// so it stays compatible with Meld Studio's QWebChannel server.
+// the Node.js Stream Deck plugin. Functional changes from upstream: the export
+// at the bottom of the file, and hardening of the message dispatch — under Node
+// the transport is an EventTarget, so an exception escaping `onmessage` would
+// kill the whole plugin process rather than being swallowed per-page as in a
+// browser. The protocol implementation is otherwise verbatim so it stays
+// compatible with Meld Studio's QWebChannel server.
+
+import streamDeck from "@elgato/streamdeck";
 
 const QWebChannelMessageTypes = {
 	signal: 1,
@@ -77,23 +82,39 @@ const QWebChannel = function (transport, initCallback, converters) {
 	};
 
 	this.transport.onmessage = function (message) {
-		var data = message.data;
-		if (typeof data === "string") {
-			data = JSON.parse(data);
-		}
-		switch (data.type) {
-			case QWebChannelMessageTypes.signal:
-				channel.handleSignal(data);
-				break;
-			case QWebChannelMessageTypes.response:
-				channel.handleResponse(data);
-				break;
-			case QWebChannelMessageTypes.propertyUpdate:
-				channel.handlePropertyUpdate(data);
-				break;
-			default:
-				console.error("invalid message received:", message.data);
-				break;
+		// Under Node the transport is an EventTarget: an exception escaping this
+		// handler becomes an uncaught exception and kills the whole plugin process,
+		// so every failure (malformed frame, throwing signal subscriber, ...) must
+		// be contained here.
+		try {
+			var data = message.data;
+			if (typeof data === "string") {
+				data = JSON.parse(data);
+			}
+			switch (data.type) {
+				case QWebChannelMessageTypes.signal:
+					channel.handleSignal(data);
+					break;
+				case QWebChannelMessageTypes.response:
+					channel.handleResponse(data);
+					break;
+				case QWebChannelMessageTypes.propertyUpdate:
+					channel.handlePropertyUpdate(data);
+					break;
+				default:
+					console.error("invalid message received:", message.data);
+					break;
+			}
+		} catch (err) {
+			streamDeck.logger.error("QWebChannel message handling failed", err);
+			// If this was the init/handshake, the channel is now half-initialized on
+			// an open socket and nothing would ever retry. Close the transport so the
+			// owner's onclose handling drives a clean reconnect.
+			try {
+				channel.transport.close();
+			} catch {
+				// ignore
+			}
 		}
 	};
 
@@ -134,8 +155,15 @@ const QWebChannel = function (transport, initCallback, converters) {
 			console.error("Invalid response message received: ", JSON.stringify(message));
 			return;
 		}
-		channel.execCallbacks[message.id](message.data);
+		var callback = channel.execCallbacks[message.id];
+		if (!callback) {
+			// Duplicate or unknown response id; invoking through the missing entry
+			// would throw a TypeError.
+			streamDeck.logger.error("QWebChannel: unknown response id received", message.id);
+			return;
+		}
 		delete channel.execCallbacks[message.id];
+		callback(message.data);
 	};
 
 	this.handlePropertyUpdate = function (message) {

@@ -17,9 +17,17 @@ const DEFAULT_TTL_MS = 750;
 export class OptimisticStore<T> {
 	readonly #pending = new Map<string, { value: T; timer: ReturnType<typeof setTimeout> }>();
 	readonly #ttlMs: number;
+	readonly #onExpire?: (context: string) => void;
 
-	constructor(ttlMs: number = DEFAULT_TTL_MS) {
+	/**
+	 * @param ttlMs Lifetime of an optimistic value before it self-expires.
+	 * @param onExpire Invoked (after removal) when a value expires without being
+	 * confirmed or cleared — the owner should repaint from authoritative state,
+	 * since whatever was last painted optimistically may never be confirmed.
+	 */
+	constructor(ttlMs: number = DEFAULT_TTL_MS, onExpire?: (context: string) => void) {
 		this.#ttlMs = ttlMs;
+		this.#onExpire = onExpire;
 	}
 
 	/**
@@ -30,7 +38,10 @@ export class OptimisticStore<T> {
 	 */
 	set(context: string, value: T): void {
 		this.clear(context);
-		const timer = setTimeout(() => this.#pending.delete(context), this.#ttlMs);
+		const timer = setTimeout(() => {
+			this.#pending.delete(context);
+			this.#onExpire?.(context);
+		}, this.#ttlMs);
 		// Do not keep the process alive purely for an optimistic-value expiry.
 		timer.unref?.();
 		this.#pending.set(context, { value, timer });

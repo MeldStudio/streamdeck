@@ -1,10 +1,11 @@
 // Copyright (c) 2024 Meld Studio, Inc.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-import {
+import streamDeck, {
 	type DialAction,
 	type DidReceiveSettingsEvent,
 	type KeyAction,
+	type KeyDownEvent,
 	SingletonAction,
 	type WillAppearEvent,
 	type WillDisappearEvent,
@@ -100,8 +101,9 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 	 * Optional hook invoked when an action becomes invisible. Use for cleanup such
 	 * as unregistering a track observer.
 	 * @param context The disappearing context id.
+	 * @param settings The context's last known settings, if any.
 	 */
-	protected onDisappear?(context: string): void | Promise<void>;
+	protected onDisappear?(context: string, settings: T | undefined): void | Promise<void>;
 
 	/**
 	 * Optional hook invoked when settings change, before {@link render}.
@@ -124,10 +126,21 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 
 	/** @inheritdoc */
 	override async onWillDisappear(ev: WillDisappearEvent<T>): Promise<void> {
+		const settings = this.#settings.get(ev.action.id);
 		this.#settings.delete(ev.action.id);
 		this.#lastState.delete(ev.action.id);
 		this.#lastImage.delete(ev.action.id);
-		await this.onDisappear?.(ev.action.id);
+		await this.onDisappear?.(ev.action.id, settings);
+	}
+
+	/** @inheritdoc */
+	override onKeyDown(ev: KeyDownEvent<T>): void {
+		// The Stream Deck app may repaint a key on press (multi-actions, or any
+		// state the manifest doesn't cover), so the displayed state can no longer be
+		// assumed to match what we last sent. Forget it so the next setKeyState /
+		// setKeyImage always reasserts the authoritative visuals.
+		this.#lastState.delete(ev.action.id);
+		this.#lastImage.delete(ev.action.id);
 	}
 
 	/** @inheritdoc */
@@ -161,12 +174,19 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 	protected async renderAll(reason: RenderReason): Promise<void> {
 		const session = this.session();
 		for (const action of this.actions) {
-			let settings = this.#settings.get(action.id);
-			if (settings === undefined) {
-				settings = await action.getSettings<T>();
-				this.#settings.set(action.id, settings);
+			// Contain per-context failures: renderAll is invoked fire-and-forget from
+			// connection events, and one bad context must not skip the others or
+			// surface as an unhandled rejection.
+			try {
+				let settings = this.#settings.get(action.id);
+				if (settings === undefined) {
+					settings = await action.getSettings<T>();
+					this.#settings.set(action.id, settings);
+				}
+				await this.render({ action, settings, session, reason });
+			} catch (err) {
+				streamDeck.logger.error(`Failed to render ${action.id} (${reason})`, err);
 			}
-			await this.render({ action, settings, session, reason });
 		}
 	}
 
@@ -179,8 +199,14 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 		if (this.#lastState.get(action.id) === state) {
 			return;
 		}
-		this.#lastState.set(action.id, state);
-		await this.asKey(action).setState(state);
+		// Cache only after a successful send so a failure is retried on the next
+		// render; several call sites are fire-and-forget, so contain the error here.
+		try {
+			await this.asKey(action).setState(state);
+			this.#lastState.set(action.id, state);
+		} catch (err) {
+			streamDeck.logger.error(`Failed to set state for ${action.id}`, err);
+		}
 	}
 
 	/**
@@ -192,8 +218,12 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 		if (this.#lastImage.get(action.id) === image) {
 			return;
 		}
-		this.#lastImage.set(action.id, image);
-		await this.asKey(action).setImage(image);
+		try {
+			await this.asKey(action).setImage(image);
+			this.#lastImage.set(action.id, image);
+		} catch (err) {
+			streamDeck.logger.error(`Failed to set image for ${action.id}`, err);
+		}
 	}
 
 	/** Narrows an instance to a {@link KeyAction}; only valid for keypad actions. */

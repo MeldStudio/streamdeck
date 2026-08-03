@@ -14,13 +14,18 @@ type ShowSceneSettings = {
 /** Switches to a configured scene; the key lights up when that scene is live. */
 @action({ UUID: "co.meldstudio.streamdeck.show-scene" })
 export class ShowScene extends MeldAction<ShowSceneSettings> {
-	/** Scene id optimistically requested per context, until Meld confirms it. */
-	readonly #requested = new OptimisticStore<string>();
+	/**
+	 * Scene id optimistically requested per context, until Meld confirms it. If it
+	 * expires unconfirmed (the request never took effect), repaint from
+	 * authoritative state so the key doesn't stay lit for a scene that isn't live.
+	 */
+	readonly #requested = new OptimisticStore<string>(undefined, () => void this.renderAll("sessionChanged"));
 
 	/** @inheritdoc */
 	override onKeyUp(ev: KeyUpEvent<ShowSceneSettings>): void {
 		const scene = ev.payload.settings.scene;
-		if (!scene) {
+		// Only act (and light the key) when the request can actually reach Meld.
+		if (!scene || !this.meld.ready) {
 			return;
 		}
 		// Optimistically light the key; the next session update confirms it.

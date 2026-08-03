@@ -28,6 +28,9 @@ export type MeldEventMap = {
 
 type Listener<Args extends unknown[]> = (...args: Args) => void;
 
+/** Invoked when a listener throws; receives the event name and the error. */
+export type ListenerErrorHandler = (event: string, err: unknown) => void;
+
 /**
  * A tiny strongly-typed event emitter. Deliberately not Node's `EventEmitter`
  * so the event names and argument tuples are checked at compile time — the
@@ -36,6 +39,15 @@ type Listener<Args extends unknown[]> = (...args: Args) => void;
  */
 export class TypedEmitter<Events extends Record<string, unknown[]>> {
 	readonly #listeners = new Map<keyof Events, Set<Listener<never>>>();
+	readonly #onListenerError: ListenerErrorHandler;
+
+	/**
+	 * @param onListenerError Receives errors thrown by listeners (defaults to
+	 * `console.error`). Injected so this module stays dependency-free.
+	 */
+	constructor(onListenerError: ListenerErrorHandler = (event, err) => console.error(`Listener for "${event}" threw`, err)) {
+		this.#onListenerError = onListenerError;
+	}
 
 	/**
 	 * Subscribes to an event.
@@ -74,7 +86,11 @@ export class TypedEmitter<Events extends Record<string, unknown[]>> {
 			return;
 		}
 		for (const listener of [...set]) {
-			(listener as Listener<Events[E]>)(...args);
+			try {
+				(listener as Listener<Events[E]>)(...args);
+			} catch (err) {
+				this.#onListenerError(String(event), err);
+			}
 		}
 	}
 }

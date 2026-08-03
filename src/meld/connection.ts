@@ -35,7 +35,9 @@ const RECONNECT_MAX_MS = 10_000;
  *    after a reconnect, so actions never have to re-wire themselves.
  */
 export class MeldConnection {
-	readonly #emitter = new TypedEmitter<MeldEventMap>();
+	readonly #emitter = new TypedEmitter<MeldEventMap>((event, err) =>
+		streamDeck.logger.error(`Listener for "${event}" threw`, err),
+	);
 
 	/** Active track observers, keyed by the owning context id → trackId. */
 	readonly #observers = new Map<string, string>();
@@ -97,12 +99,14 @@ export class MeldConnection {
 			return;
 		}
 		// Switching tracks on the same context: drop the previous registration.
+		// Optional-chain the methods too — a Meld build without observer support
+		// must degrade to snapshot-only gain, not throw.
 		if (existing !== undefined && this.#ready) {
-			this.#meld?.unregisterTrackObserver(context, existing);
+			this.#meld?.unregisterTrackObserver?.(context, existing);
 		}
 		this.#observers.set(context, trackId);
 		if (this.#ready) {
-			this.#meld?.registerTrackObserver(context, trackId);
+			this.#meld?.registerTrackObserver?.(context, trackId);
 		}
 	}
 
@@ -117,7 +121,7 @@ export class MeldConnection {
 		}
 		this.#observers.delete(context);
 		if (this.#ready) {
-			this.#meld?.unregisterTrackObserver(context, trackId);
+			this.#meld?.unregisterTrackObserver?.(context, trackId);
 		}
 	}
 
@@ -175,20 +179,30 @@ export class MeldConnection {
 		}
 
 		this.#meld = meld;
-		this.#ready = true;
-		this.#reconnectDelay = RECONNECT_MIN_MS;
 
+		// Wire the signals before declaring the connection ready: if any of these
+		// throws (e.g. a Meld build missing a signal), the dispatch guard closes the
+		// socket and the reconnect path must not find a half-initialized "ready"
+		// connection.
 		meld.sessionChanged.connect(() => this.#emitter.emit("sessionChanged", meld.session));
 		meld.isStreamingChanged.connect(() => this.#emitter.emit("streamingChanged", !!meld.isStreaming));
 		meld.isRecordingChanged.connect(() => this.#emitter.emit("recordingChanged", !!meld.isRecording));
-		meld.gainUpdated.connect((trackId, gain, muted) =>
+		// Optional: part of the track-observer feature — a build without it must
+		// degrade to snapshot-only gain, not throw during the handshake.
+		meld.gainUpdated?.connect((trackId, gain, muted) =>
 			this.#emitter.emit("gainChanged", { trackId, gain, muted }),
 		);
 
+		this.#ready = true;
+
 		// Re-register every active observer against the fresh `meld` object.
 		for (const [context, trackId] of this.#observers) {
-			meld.registerTrackObserver(context, trackId);
+			meld.registerTrackObserver?.(context, trackId);
 		}
+
+		// Only a fully completed handshake resets the backoff; a recurring throw
+		// above must keep growing the delay instead of hammering Meld every second.
+		this.#reconnectDelay = RECONNECT_MIN_MS;
 
 		// Announce readiness, then push the initial authoritative state so listeners
 		// hydrate deterministically without racing the first signal.

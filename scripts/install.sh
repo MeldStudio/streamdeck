@@ -15,4 +15,12 @@ if [[ ! -d node_modules ]]; then
 fi
 npm run build
 
-rsync -avz --exclude 'logs' co.meldstudio.streamdeck.sdPlugin ~/Library/Application\ Support/com.elgato.StreamDeck/Plugins/
+# --delete drops files removed from the repo (e.g. the legacy SDKv2 tree) from
+# the installed copy; the 'logs' exclude also protects logs from deletion.
+rsync -avz --delete --exclude 'logs' co.meldstudio.streamdeck.sdPlugin ~/Library/Application\ Support/com.elgato.StreamDeck/Plugins/
+
+# The plugin is a long-lived Node process; without a restart the old bundle
+# keeps running even though the files on disk were just replaced.
+if ! npx streamdeck restart co.meldstudio.streamdeck; then
+    echo "Could not restart the plugin automatically; restart Stream Deck to load the update."
+fi

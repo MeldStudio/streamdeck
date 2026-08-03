@@ -78,7 +78,8 @@ export type MeldObject = {
 	sessionChanged: MeldSignal<[]>;
 	isStreamingChanged: MeldSignal<[]>;
 	isRecordingChanged: MeldSignal<[]>;
-	gainUpdated: MeldSignal<[trackId: string, gain: number, muted: boolean]>;
+	/** Part of the optional track-observer feature; absent on builds without it. */
+	gainUpdated?: MeldSignal<[trackId: string, gain: number, muted: boolean]>;
 
 	// Methods.
 	showScene(sceneId: string): void;
@@ -93,8 +94,8 @@ export type MeldObject = {
 	setGain(trackId: string, gain: number): void;
 	setMuted?(trackId: string, muted: boolean): void;
 	setProperty?(objectId: string, propertyName: string, value: unknown): void;
-	registerTrackObserver(context: string, trackId: string): void;
-	unregisterTrackObserver(context: string, trackId: string): void;
+	registerTrackObserver?(context: string, trackId: string): void;
+	unregisterTrackObserver?(context: string, trackId: string): void;
 	callFunction?(layerId: string, command: string): void;
 	callFunctionWithArgs?(layerId: string, command: string, args: unknown[]): void;
 	sendCommand?(command: string): void;

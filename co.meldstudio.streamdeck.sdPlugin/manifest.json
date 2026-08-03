@@ -7,8 +7,7 @@
 	"Author": "MeldStudio",
 	"CodePath": "bin/plugin.js",
 	"Nodejs": {
-		"Version": "24",
-		"Debug": "enabled"
+		"Version": "24"
 	},
 	"Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
 	"URL": "https://meldstudio.co",
@@ -40,6 +39,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
 			"Tooltip": "Change scenes!",
 			"UUID": "co.meldstudio.streamdeck.show-scene",
 			"PropertyInspectorPath": "ui/show-scene.html"
@@ -82,6 +82,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
 			"Tooltip": "Mute an audio track!",
 			"UUID": "co.meldstudio.streamdeck.toggle-mute",
 			"PropertyInspectorPath": "ui/toggle-mute.html"
@@ -98,6 +99,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
 			"Tooltip": "Monitor an audio track!",
 			"UUID": "co.meldstudio.streamdeck.toggle-monitor",
 			"PropertyInspectorPath": "ui/toggle-monitor.html"
@@ -162,6 +164,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
 			"Tooltip": "Toggle layer visibility!",
 			"UUID": "co.meldstudio.streamdeck.toggle-layer",
 			"PropertyInspectorPath": "ui/toggle-layer.html"
@@ -178,6 +181,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
 			"Tooltip": "Toggle effect visibility!",
 			"UUID": "co.meldstudio.streamdeck.toggle-effect",
 			"PropertyInspectorPath": "ui/toggle-effect.html"
@@ -194,6 +198,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
 			"Tooltip": "Start or stop recording.",
 			"UUID": "co.meldstudio.streamdeck.toggle-record",
 			"PropertyInspectorPath": "ui/toggle-record.html"
@@ -210,6 +215,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
 			"Tooltip": "Go Live or go offline.",
 			"UUID": "co.meldstudio.streamdeck.toggle-stream",
 			"PropertyInspectorPath": "ui/toggle-stream.html"

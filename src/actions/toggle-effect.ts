@@ -3,7 +3,7 @@
 
 import { action } from "@elgato/streamdeck";
 
-import type { MeldSession } from "../meld/index.js";
+import type { EffectItem, IdentifiedItem, MeldSession } from "../meld/index.js";
 import { SessionToggleAction } from "./session-toggle.js";
 
 /** Settings for {@link ToggleEffect}. */
@@ -29,13 +29,29 @@ export class ToggleEffect extends SessionToggleAction<ToggleEffectSettings> {
 	}
 
 	protected currentValue(settings: ToggleEffectSettings, session: MeldSession): boolean | null {
-		const effect = session.getEffect(settings.effect);
+		const effect = this.#effect(settings, session);
 		return effect ? effect.enabled : null;
 	}
 
 	protected toggle(settings: ToggleEffectSettings): void {
-		if (settings.scene && settings.layer && settings.effect) {
-			this.meld.meld?.toggleEffect?.(settings.scene, settings.layer, settings.effect);
+		if (!settings.scene || !settings.layer || !settings.effect) {
+			return;
 		}
+		// Settings can hold a layer/effect from a previously-selected parent (e.g.
+		// saved before a dropdown changed); never send Meld a mismatched triple.
+		if (this.meld.ready && !this.#effect(settings, this.session())) {
+			return;
+		}
+		this.meld.meld?.toggleEffect?.(settings.scene, settings.layer, settings.effect);
+	}
+
+	/** The configured effect, only when its layer/scene chain matches the settings. */
+	#effect(settings: ToggleEffectSettings, session: MeldSession): IdentifiedItem<EffectItem> | undefined {
+		const effect = session.getEffect(settings.effect);
+		if (!effect || effect.parent !== settings.layer) {
+			return undefined;
+		}
+		const layer = session.getLayer(settings.layer);
+		return layer && layer.parent === settings.scene ? effect : undefined;
 	}
 }

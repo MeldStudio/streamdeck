@@ -10,8 +10,13 @@ import { MeldAction, type RenderArgs } from "./base.js";
 @action({ UUID: "co.meldstudio.streamdeck.toggle-record" })
 export class ToggleRecord extends MeldAction {
 	/** Reflects the current recording state on the key (state 1 = recording). */
-	protected render({ action }: RenderArgs<JsonObject>): Promise<void> {
-		return this.setKeyState(action, this.isRecording ? 1 : 0);
+	protected async render({ action, reason }: RenderArgs<JsonObject>): Promise<void> {
+		// While disconnected there is nothing authoritative to show; keep the last
+		// state rather than flashing "not recording" on a connection blip.
+		if (!this.meld.ready && reason !== "willAppear") {
+			return;
+		}
+		await this.setKeyState(action, this.isRecording ? 1 : 0);
 	}
 
 	/** @inheritdoc */

@@ -3,7 +3,7 @@
 
 import { action } from "@elgato/streamdeck";
 
-import type { MeldSession } from "../meld/index.js";
+import type { IdentifiedItem, LayerItem, MeldSession } from "../meld/index.js";
 import { SessionToggleAction } from "./session-toggle.js";
 
 /** Settings for {@link ToggleLayer}. */
@@ -28,13 +28,25 @@ export class ToggleLayer extends SessionToggleAction<ToggleLayerSettings> {
 	}
 
 	protected currentValue(settings: ToggleLayerSettings, session: MeldSession): boolean | null {
-		const layer = session.getLayer(settings.layer);
+		const layer = this.#layer(settings, session);
 		return layer ? layer.visible : null;
 	}
 
 	protected toggle(settings: ToggleLayerSettings): void {
-		if (settings.scene && settings.layer) {
-			this.meld.meld?.toggleLayer?.(settings.scene, settings.layer);
+		if (!settings.scene || !settings.layer) {
+			return;
 		}
+		// Settings can hold a layer from a previously-selected scene (e.g. saved
+		// before the scene dropdown changed); never send Meld a mismatched pair.
+		if (this.meld.ready && !this.#layer(settings, this.session())) {
+			return;
+		}
+		this.meld.meld?.toggleLayer?.(settings.scene, settings.layer);
+	}
+
+	/** The configured layer, only when it actually belongs to the configured scene. */
+	#layer(settings: ToggleLayerSettings, session: MeldSession): IdentifiedItem<LayerItem> | undefined {
+		const layer = session.getLayer(settings.layer);
+		return layer && layer.parent === settings.scene ? layer : undefined;
 	}
 }
