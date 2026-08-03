@@ -14,7 +14,7 @@
 
 import { WebSocketServer, type WebSocket as ServerSocket } from "ws";
 
-import type { FakeScene, FakeSession, FakeTrack, Scenario } from "./session.ts";
+import type { FakeLayer, FakeScene, FakeSession, FakeTrack, Scenario } from "./session.ts";
 
 /** QWebChannel message types, mirroring the vendored client. */
 const Msg = {
@@ -50,6 +50,14 @@ const SIG_GAIN_UPDATED = 20;
 
 /** The API version `StreamDeckController.qml` advertises. */
 const API_VERSION = 2;
+
+/**
+ * Meld's autosave delay (`kSavePrefsDelay`). A session change only reaches the
+ * plugin once the snapshot is republished on `sessionSaved`, and that timer is
+ * reset by every further edit — so this is the floor on how long a key can wait
+ * for confirmation, not an average.
+ */
+export const MELD_SESSION_DEBOUNCE_MS = 600;
 
 /** Methods exposed on the `meld` object, in StreamDeckController.qml order. */
 const METHODS = [
@@ -93,6 +101,15 @@ export type FakeMeldOptions = {
 	 * bug class. Zero (the default) echoes synchronously.
 	 */
 	echoDelayMs?: number;
+	/**
+	 * Republish the session snapshot behind a retriggerable debounce of this many
+	 * milliseconds, as Meld does: `filteredMap` is only rebuilt on `sessionSaved`,
+	 * which rides a 600 ms autosave timer that any further session edit resets.
+	 * Tests that care about how long a key waits for confirmation should set this
+	 * to {@link MELD_SESSION_DEBOUNCE_MS}; the default republishes immediately so
+	 * tests about behaviour rather than timing stay fast.
+	 */
+	sessionDebounceMs?: number;
 	/** Called for every method invocation, for logging. */
 	onInvoke?: (invocation: Invocation) => void;
 };
@@ -117,6 +134,9 @@ export class FakeMeld {
 
 	/** In-flight delayed `gainUpdated` timers, cancelled on close. */
 	readonly #pendingEchoes = new Set<ReturnType<typeof setTimeout>>();
+
+	/** The pending debounced session republish, if any. */
+	#sessionTimer?: ReturnType<typeof setTimeout>;
 
 	constructor(scenario: Scenario, options: FakeMeldOptions = {}) {
 		this.#session = structuredClone(scenario.session);
@@ -174,6 +194,10 @@ export class FakeMeld {
 			clearTimeout(timer);
 		}
 		this.#pendingEchoes.clear();
+		if (this.#sessionTimer) {
+			clearTimeout(this.#sessionTimer);
+			this.#sessionTimer = undefined;
+		}
 		for (const socket of this.#sockets) {
 			socket.terminate();
 		}
@@ -397,8 +421,12 @@ export class FakeMeld {
 				return null;
 			}
 			case "toggleLayer": {
-				const layer = this.#session.items[second as string];
-				if (layer?.type === "layer") {
+				// The QML resolves the layer *within the scene it was given*
+				// (`scene.layers.findById`), so a mismatched pair is a no-op. Honouring
+				// the layer id alone would let a caller that sends a stale scene look
+				// correct here and fail against Meld.
+				const layer = this.#layerIn(first, second as string);
+				if (layer) {
 					layer.visible = !layer.visible;
 					layer.isEffectivelyVisible = layer.visible;
 					this.#publishSession();
@@ -406,18 +434,29 @@ export class FakeMeld {
 				return null;
 			}
 			case "toggleEffect": {
-				let effect = this.#session.items[third];
-				if (effect?.type !== "effect") {
-					// Meld falls back to the historical `<layerId>-<index>` id form so
-					// that profiles saved before effects had stable ids keep working.
-					const [layerId, rawIndex] = String(third).split("-");
-					const index = Number.parseInt(rawIndex, 10);
-					if (layerId && Number.isInteger(index)) {
-						const siblings = Object.values(this.#session.items).filter(
-							(item) => item.type === "effect" && item.parent === layerId,
-						);
-						effect = siblings[index];
+				// Same chain rule as toggleLayer, one level deeper: the effect must be
+				// found within the layer named by the arguments.
+				const layer = this.#layerIn(first, second as string);
+				if (!layer) {
+					return null;
+				}
+				const siblings = Object.entries(this.#session.items).filter(
+					([, item]) => item.type === "effect" && item.parent === (second as string),
+				);
+				let effect = siblings.find(([id]) => id === third)?.[1];
+				if (!effect) {
+					// Meld's fallback for ids saved before effects were addressable:
+					// exactly two dash-separated parts, the second used as an index into
+					// the layer from the *arguments* — the prefix is ignored entirely.
+					const parts = String(third).split("-");
+					if (parts.length !== 2) {
+						return null;
 					}
+					const index = Number.parseInt(parts[1], 10);
+					if (!Number.isInteger(index) || index < 0 || index >= siblings.length) {
+						return null;
+					}
+					effect = siblings[index][1];
 				}
 				if (effect?.type === "effect") {
 					effect.enabled = !effect.enabled;
@@ -458,6 +497,22 @@ export class FakeMeld {
 		}
 	}
 
+	/**
+	 * Resolves a layer only when it really belongs to the given scene, mirroring
+	 * the QML's `getSceneById(sceneId)` then `scene.layers.findById(layerId)`.
+	 * Note the scene lookup accepts vertical scenes: `getSceneById` searches both
+	 * models, unlike `setStagedScene`.
+	 * @param sceneId Scene the caller claims the layer is in.
+	 * @param layerId Layer to resolve.
+	 */
+	#layerIn(sceneId: string, layerId: string): FakeLayer | undefined {
+		if (!this.#sceneOrNull(sceneId)) {
+			return undefined;
+		}
+		const layer = this.#session.items[layerId];
+		return layer?.type === "layer" && layer.parent === sceneId ? layer : undefined;
+	}
+
 	#trackOrNull(id: string): FakeTrack | undefined {
 		const item = this.#session.items[id];
 		return item?.type === "track" ? item : undefined;
@@ -494,8 +549,24 @@ export class FakeMeld {
 		this.#pendingEchoes.add(timer);
 	}
 
+	/**
+	 * Republishes the session, honouring the configured debounce. The timer is
+	 * retriggerable, exactly as Meld's autosave is: a burst of edits produces one
+	 * snapshot, delayed until the burst stops.
+	 */
 	#publishSession(): void {
-		this.#publish(PROP_SESSION, SIG_SESSION_CHANGED, this.#session);
+		const delay = this.#options.sessionDebounceMs ?? 0;
+		if (delay <= 0) {
+			this.#publish(PROP_SESSION, SIG_SESSION_CHANGED, this.#session);
+			return;
+		}
+		if (this.#sessionTimer) {
+			clearTimeout(this.#sessionTimer);
+		}
+		this.#sessionTimer = setTimeout(() => {
+			this.#sessionTimer = undefined;
+			this.#publish(PROP_SESSION, SIG_SESSION_CHANGED, this.#session);
+		}, delay);
 	}
 
 	/**

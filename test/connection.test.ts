@@ -191,7 +191,7 @@ describe("MeldConnection", () => {
 		assert.equal(connection.meld?.isRecording, true);
 	});
 
-	test("survives repeated instance churn without leaking timers or sockets", async () => {
+	test("survives repeated instance churn without leaking timers or handles", async () => {
 		// `_getActiveHandles` does not report timers at all, so it cannot see the
 		// leak that matters here; `getActiveResourcesInfo` does.
 		const resources = (): string[] => process.getActiveResourcesInfo().filter((r) => r !== "TTYWrap");

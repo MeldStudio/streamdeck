@@ -22,7 +22,8 @@ function build(): { scenario: Scenario; ids: Record<string, string> } {
 	const scene = b.scene("Live", { current: true });
 	const other = b.scene("Break");
 	const clip = b.layer(scene, "Clip", { mediaSource: "clip.mp4", isPlaying: true });
-	return { scenario: b.build("ms", "media"), ids: { scene, other, clip } };
+	const track = b.track("Microphone", { gain: 0.6 });
+	return { scenario: b.build("ms", "media"), ids: { scene, other, clip, track } };
 }
 
 describe("Media and ShowScene", () => {
@@ -118,6 +119,62 @@ describe("Media and ShowScene", () => {
 		assert.equal(server.callsTo("showScene").length, 1);
 		assert.equal(key.state, 1, "the key lights for the scene that actually went live");
 		assert.equal((server.session.items[ids.other] as { current: boolean }).current, true);
+	});
+
+	test("a show-scene key stays lit while Meld's debounced snapshot catches up", async () => {
+		// A scene switch is only confirmed when the session snapshot is republished,
+		// and that rides Meld's retriggerable ~600ms autosave — far slower than a
+		// gain echo. The key must hold its optimistic light across that gap instead
+		// of blinking dark and back.
+		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slowPort = await slow.listen(0);
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowIds = build().ids;
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = slowConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			slowConnection.connect();
+			await ready;
+
+			const action = new ShowScene(slowConnection);
+			const key = new FakeActionInstance("s", { scene: slowIds.other });
+			mount(action, [key]);
+			await action.onWillAppear(willAppear(key, { scene: slowIds.other }) as never);
+			await sleep(60);
+			key.reset();
+
+			action.onKeyUp(keyEvent(key, { scene: slowIds.other }) as never);
+			await sleep(100);
+			assert.equal(key.state, 1, "the press lights the key immediately");
+
+			// Meld's autosave timer is retriggerable, so ordinary concurrent activity
+			// — a fader move, a layer edit — keeps pushing the confirmation out. Each
+			// edit here resets the 600ms debounce, which is the realistic case where a
+			// short optimistic TTL loses the race and the key blinks dark.
+			for (let i = 0; i < 6; i++) {
+				slow.setMuted(slowIds.track, i % 2 === 0);
+				await sleep(150);
+				assert.equal(key.state, 1, `the key went dark ~${100 + (i + 1) * 150}ms after the press`);
+			}
+
+			// Let the edits stop so the snapshot finally lands.
+			await sleep(800);
+			assert.equal(key.state, 1, "and it stays lit once the confirmation arrives");
+
+			assert.equal(
+				(slow.session.items[slowIds.other] as { current: boolean }).current,
+				true,
+				"and Meld did make the scene current",
+			);
+		} finally {
+			slowConnection.dispose();
+			await slow.close();
+		}
 	});
 
 	test("a show-scene key for a scene this instance lacks neither sends nor lights", async () => {

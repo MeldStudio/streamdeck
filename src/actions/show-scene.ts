@@ -11,6 +11,19 @@ type ShowSceneSettings = {
 	scene?: string;
 };
 
+/**
+ * How long the key stays optimistically lit while waiting for Meld to confirm.
+ *
+ * Unlike a gain change — which Meld reports immediately over `gainUpdated` — a
+ * scene switch is only visible once the session snapshot is republished, and
+ * that rides a 600 ms retriggerable autosave: any other session edit in the
+ * meantime restarts the timer. The default optimistic TTL leaves almost no
+ * headroom over that, so the key would blink dark before the confirmation
+ * arrived. This gives the echo room while still self-correcting a press that
+ * genuinely never took effect.
+ */
+const SCENE_CONFIRM_TTL_MS = 3_000;
+
 /** Switches to a configured scene; the key lights up when that scene is live. */
 @action({ UUID: "co.meldstudio.streamdeck.show-scene" })
 export class ShowScene extends MeldAction<ShowSceneSettings> {
@@ -19,7 +32,9 @@ export class ShowScene extends MeldAction<ShowSceneSettings> {
 	 * expires unconfirmed (the request never took effect), repaint from
 	 * authoritative state so the key doesn't stay lit for a scene that isn't live.
 	 */
-	readonly #requested = new OptimisticStore<string>(undefined, () => void this.renderAll("sessionChanged"));
+	readonly #requested = new OptimisticStore<string>(SCENE_CONFIRM_TTL_MS, () =>
+		void this.renderAll("sessionChanged"),
+	);
 
 	/** @inheritdoc */
 	override onKeyUp(ev: KeyUpEvent<ShowSceneSettings>): void {

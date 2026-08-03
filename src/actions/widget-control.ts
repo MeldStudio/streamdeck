@@ -30,6 +30,7 @@ const WIDGET_EVENT_ICONS: Record<string, string> = {
 	SUBATHONTIMER_ADDTIME: "assets/Widget/Key Icon/widget-subathontimer-addtime",
 	COUNTER_INCREMENT: "assets/Widget/Key Icon/widget-counter-increment",
 	COUNTER_DECREMENT: "assets/Widget/Key Icon/widget-counter-decrement",
+	WHEELSPIN_SPIN: "assets/Widget/Key Icon/widget-wheelspin-spin",
 };
 
 /** Dispatches widget stream events (stopwatch, countdown, confetti, etc.). */

@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { FakeInput, FakeSelect, loadPropertyInspector } from "./helpers/fake-dom.ts";
+import { FakeDiv, FakeInput, FakeSelect, loadPropertyInspector } from "./helpers/fake-dom.ts";
 
 /** Session items covering two scenes, their layers, and an effect. */
 const ITEMS = {
@@ -210,13 +210,16 @@ describe("property inspector runtime", () => {
 		assert.equal(scene.value, "sceneB", "an external settings change must move the control");
 	});
 
-	test("watchConnection hides its notice only while Meld is connected", () => {
+	test("watchConnection reveals its notice before any snapshot arrives", () => {
+		// The markup ships the notice hidden, so it only appears because binding
+		// fires once immediately with the assumed-disconnected state. Starting the
+		// element hidden is what makes this assertion able to fail.
 		const pi = loadPropertyInspector();
-		const loading = pi.element("loading", new FakeSelect());
-		pi.MeldPI.watchConnection("loading");
+		const loading = pi.element("loading", new FakeDiv());
+		assert.equal(loading.style.display, "none", "the markup starts the notice hidden");
 
-		// Before any snapshot the plugin is assumed disconnected.
-		assert.equal(loading.style.display, "", "the notice shows until the plugin reports a connection");
+		pi.MeldPI.watchConnection("loading");
+		assert.equal(loading.style.display, "", "binding must reveal the notice straight away");
 
 		pi.pushSession(ITEMS, true);
 		assert.equal(loading.style.display, "none");

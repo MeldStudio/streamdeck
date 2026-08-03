@@ -22,6 +22,11 @@ export class FakeOption {
 
 /** Base element with event listeners and a style object. */
 class FakeElement {
+	/**
+	 * Inline style. Elements start visible unless a test seeds otherwise; the
+	 * connecting notice in every shipped inspector is markup-hidden, so tests
+	 * covering it must start it at `none` — see {@link FakeDiv}.
+	 */
 	readonly style: { display: string } = { display: "" };
 	disabled = false;
 	readonly #listeners = new Map<string, ((event: unknown) => void)[]>();
@@ -108,6 +113,21 @@ export class FakeSelect extends FakeElement {
 	}
 }
 
+/**
+ * A plain `<div>`, used for the "Connecting to Meld Studio…" notice.
+ *
+ * Every shipped inspector declares it as `<div id="loading" style="display:
+ * none;">`, so it starts hidden. Reproducing that matters: an element seeded
+ * visible would make "the notice is showing" true before the runtime did
+ * anything, and the assertion could not fail.
+ */
+export class FakeDiv extends FakeElement {
+	constructor(display = "none") {
+		super();
+		this.style.display = display;
+	}
+}
+
 /** An `<input>`: its value is a plain string. */
 export class FakeInput extends FakeElement {
 	value = "";
@@ -172,7 +192,7 @@ export type PropertyInspector = {
 	/** The socket the runtime opened. */
 	socket: FakePiSocket;
 	/** Registers an element under an id, as the inspector's markup would. */
-	element<T extends FakeSelect | FakeInput>(id: string, element: T): T;
+	element<T extends FakeSelect | FakeInput | FakeDiv>(id: string, element: T): T;
 	/** Pushes a session snapshot, as the plugin's ui-bridge does. */
 	pushSession(items: Record<string, unknown>, connected?: boolean): void;
 	/** Delivers `didReceiveSettings`, as Stream Deck does after a write. */
@@ -191,7 +211,7 @@ export function loadPropertyInspector(
 	settings: Record<string, unknown> = {},
 	actionUuid = "co.meldstudio.streamdeck.toggle-layer",
 ): PropertyInspector {
-	const elements = new Map<string, FakeSelect | FakeInput>();
+	const elements = new Map<string, FakeSelect | FakeInput | FakeDiv>();
 	const window: Record<string, unknown> = {};
 	const document = {
 		getElementById: (id: string) => elements.get(id) ?? null,
