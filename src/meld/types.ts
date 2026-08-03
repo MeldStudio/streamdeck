@@ -14,17 +14,23 @@ export type SceneItem = {
 	name: string;
 	current: boolean;
 	staged: boolean;
+	/** True for the vertical-canvas twin of a scene; property inspectors filter these out. */
+	vertical?: boolean;
 };
 
-/** An audio track. `parent` (when present) references the owning layer/scene. */
+/**
+ * An audio track. `parent` (when present) references the owning scene object.
+ *
+ * Deliberately no `gain`: `StreamDeckMapper::audioTrackToMap` does not publish
+ * it. Gain reaches the plugin only through the `gainUpdated` signal, which
+ * `registerTrackObserver` emits immediately on registration.
+ */
 export type TrackItem = {
 	type: "track";
 	name: string;
 	parent?: string;
 	monitoring: boolean;
 	muted: boolean;
-	/** Present on some builds via gain updates; not guaranteed in the session snapshot. */
-	gain?: number;
 };
 
 /** A layer within a scene. Media layers additionally expose `mediaSource`/`isPlaying`. */
@@ -34,6 +40,8 @@ export type LayerItem = {
 	index: number;
 	name: string;
 	visible: boolean;
+	/** Visibility once ancestor layers are taken into account. */
+	isEffectivelyVisible?: boolean;
 	height?: number;
 	width?: number;
 	x?: number;
@@ -41,6 +49,7 @@ export type LayerItem = {
 	rotation?: number;
 	source?: string;
 	url?: string;
+	text?: string;
 	mediaSource?: string;
 	isPlaying?: boolean;
 };
@@ -82,6 +91,8 @@ export type MeldObject = {
 	gainUpdated?: MeldSignal<[trackId: string, gain: number, muted: boolean]>;
 
 	// Methods.
+	/** Identifies this client to Meld for telemetry; absent before API version 2. */
+	setClientName?(clientName: string): void;
 	showScene(sceneId: string): void;
 	setStagedScene(sceneId: string): void;
 	showStagedScene(): void;

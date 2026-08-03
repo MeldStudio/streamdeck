@@ -155,6 +155,11 @@ export class TransitionStepper extends MeldAction<JsonObject> {
 			const anchorScene = scenes.find((scene) => scene.id === this.#anchorId);
 			if (anchorScene) {
 				this.#anchorIndex = anchorScene.index;
+			} else if (this.#anchorId !== undefined) {
+				// The anchor scene no longer exists at all (a different Meld instance
+				// or project): start fresh rather than anchoring to a foreign index.
+				this.#anchorId = undefined;
+				this.#anchorIndex = -1;
 			}
 		}
 

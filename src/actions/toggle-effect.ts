@@ -29,7 +29,10 @@ export class ToggleEffect extends SessionToggleAction<ToggleEffectSettings> {
 	}
 
 	protected currentValue(settings: ToggleEffectSettings, session: MeldSession): boolean | null {
-		const effect = this.#effect(settings, session);
+		// The effect id alone identifies the target. Legacy profiles can hold a
+		// scene/layer from previous selections alongside it; the effect must keep
+		// working across the upgrade, so the stored chain is not required to match.
+		const effect = session.getEffect(settings.effect);
 		return effect ? effect.enabled : null;
 	}
 
@@ -37,21 +40,12 @@ export class ToggleEffect extends SessionToggleAction<ToggleEffectSettings> {
 		if (!settings.scene || !settings.layer || !settings.effect) {
 			return;
 		}
-		// Settings can hold a layer/effect from a previously-selected parent (e.g.
-		// saved before a dropdown changed); never send Meld a mismatched triple.
-		if (this.meld.ready && !this.#effect(settings, this.session())) {
-			return;
-		}
-		this.meld.meld?.toggleEffect?.(settings.scene, settings.layer, settings.effect);
-	}
-
-	/** The configured effect, only when its layer/scene chain matches the settings. */
-	#effect(settings: ToggleEffectSettings, session: MeldSession): IdentifiedItem<EffectItem> | undefined {
-		const effect = session.getEffect(settings.effect);
-		if (!effect || effect.parent !== settings.layer) {
-			return undefined;
-		}
-		const layer = session.getLayer(settings.layer);
-		return layer && layer.parent === settings.scene ? effect : undefined;
+		// The session's real parent chain is authoritative, so Meld is never sent
+		// a mismatched triple even for stale stored scene/layer ids.
+		const session = this.session();
+		const effect: IdentifiedItem<EffectItem> | undefined = session.getEffect(settings.effect);
+		const layerId = effect?.parent ?? settings.layer;
+		const sceneId = session.getLayer(layerId)?.parent ?? settings.scene;
+		this.meld.meld?.toggleEffect?.(sceneId, layerId, settings.effect);
 	}
 }

@@ -376,6 +376,11 @@ function QObject(name, data, webChannel) {
 					callback = resolve;
 					errCallback = reject;
 				});
+				// Every call site here is fire-and-forget, and a response carrying no
+				// `data` rejects this promise. Marking it handled keeps that from
+				// becoming an unhandled rejection that would take down the plugin
+				// process; callers that do await still observe the rejection.
+				result.catch(function () {});
 			}
 
 			webChannel.exec(

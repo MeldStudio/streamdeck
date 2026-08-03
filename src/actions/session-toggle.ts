@@ -59,6 +59,17 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		if (!this.isConfigured(settings)) {
 			return;
 		}
+		// Acting requires a live connection and an item that exists in the current
+		// session: a command for a dead id (e.g. from a previous Meld instance) is
+		// a silent no-op in Meld and would never be echoed, so repainting here
+		// would fake a confirmed state.
+		if (!this.meld.ready) {
+			return;
+		}
+		const current = this.currentValue(settings, this.session());
+		if (current === null) {
+			return;
+		}
 
 		const mode = this.mode(settings);
 		if (!mode || mode === "toggle") {
@@ -73,7 +84,6 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		}
 
 		// No direct setter: toggle only if we are not already in the desired state.
-		const current = this.currentValue(settings, this.session()) ?? false;
 		if (current !== desired) {
 			this.toggle(settings);
 		} else {

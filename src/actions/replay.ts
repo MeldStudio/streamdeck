@@ -18,20 +18,49 @@ type ReplayState = {
 	trackId?: string;
 	muted: boolean;
 	monitoring: boolean;
-	gain: number;
+	/** Undefined until Meld reports the track's gain via `gainUpdated`. */
+	gain?: number;
 };
 
 const VOLUME_STEP_DB = 3;
+
+/** Observer context id used to follow the replay track's gain. */
+const GAIN_OBSERVER_CONTEXT = "replay-gain";
 
 /** Controls the replay clip: show/dismiss, mute/cue, and volume. */
 @action({ UUID: "co.meldstudio.streamdeck.replay" })
 export class Replay extends MeldAction<ReplaySettings> {
 	/** Latest resolved replay-track state, refreshed on every render. */
-	#replay: ReplayState = { muted: true, monitoring: false, gain: 0 };
+	#replay: ReplayState = { muted: true, monitoring: false };
+
+	/** Authoritative gain per track id, from `gainUpdated`. */
+	readonly #trackGain = new Map<string, number>();
+
+	constructor() {
+		super();
+		this.meld.on("gainChanged", ({ trackId, gain, muted }) => {
+			this.#trackGain.set(trackId, gain);
+			if (this.#replay.trackId === trackId) {
+				this.#replay.muted = muted;
+			}
+		});
+		// Gain is never part of the session snapshot, so a stale cache would
+		// otherwise outlive the instance that produced it.
+		this.meld.on("closed", () => this.#trackGain.clear());
+	}
 
 	/** Reflects the configured replay control's icon (derived from replay state). */
 	protected render({ action, settings, session }: RenderArgs<ReplaySettings>): Promise<void> {
 		this.#replay = this.#deriveReplay(session);
+		// Observe the replay track so its gain is known before the user adjusts it;
+		// registering yields an immediate `gainUpdated` from Meld.
+		if (this.meld.ready) {
+			if (this.#replay.trackId) {
+				this.meld.registerTrackObserver(GAIN_OBSERVER_CONTEXT, this.#replay.trackId);
+			} else {
+				this.meld.unregisterTrackObserver(GAIN_OBSERVER_CONTEXT);
+			}
+		}
 		return this.setKeyImage(action, this.#iconFor(settings.action));
 	}
 
@@ -85,13 +114,14 @@ export class Replay extends MeldAction<ReplaySettings> {
 				}
 				break;
 			case "volume_up":
-				if (trackId) {
-					meld?.setGain?.(trackId, toGain(toDb(gain) + VOLUME_STEP_DB));
-				}
-				break;
 			case "volume_down":
-				if (trackId) {
-					meld?.setGain?.(trackId, toGain(toDb(gain) - VOLUME_STEP_DB));
+				// Without a known gain, stepping would start from an assumed 0 and
+				// slam the track to silence instead of nudging it.
+				if (trackId && gain !== undefined) {
+					const step = replayAction === "volume_up" ? VOLUME_STEP_DB : -VOLUME_STEP_DB;
+					const next = toGain(toDb(gain) + step);
+					this.#trackGain.set(trackId, next);
+					meld?.setGain?.(trackId, next);
 				}
 				break;
 		}
@@ -104,7 +134,7 @@ export class Replay extends MeldAction<ReplaySettings> {
 	#deriveReplay(session: MeldSession): ReplayState {
 		const track = session.find((item) => item.type === "track" && item.name === "Replay Clip");
 		if (!track) {
-			return { muted: true, monitoring: false, gain: 0 };
+			return { muted: true, monitoring: false };
 		}
 		const t = track as TrackItem & { id: string };
 		return {
@@ -112,7 +142,7 @@ export class Replay extends MeldAction<ReplaySettings> {
 			trackId: t.id,
 			muted: t.muted,
 			monitoring: t.monitoring,
-			gain: t.gain ?? 0,
+			gain: this.#trackGain.get(t.id),
 		};
 	}
 

@@ -28,7 +28,10 @@ export class ToggleLayer extends SessionToggleAction<ToggleLayerSettings> {
 	}
 
 	protected currentValue(settings: ToggleLayerSettings, session: MeldSession): boolean | null {
-		const layer = this.#layer(settings, session);
+		// The layer id alone identifies the target. Legacy profiles can hold a
+		// scene from a previous selection alongside it; the layer must keep working
+		// across the upgrade, so the stored scene is not required to match.
+		const layer = session.getLayer(settings.layer);
 		return layer ? layer.visible : null;
 	}
 
@@ -36,17 +39,9 @@ export class ToggleLayer extends SessionToggleAction<ToggleLayerSettings> {
 		if (!settings.scene || !settings.layer) {
 			return;
 		}
-		// Settings can hold a layer from a previously-selected scene (e.g. saved
-		// before the scene dropdown changed); never send Meld a mismatched pair.
-		if (this.meld.ready && !this.#layer(settings, this.session())) {
-			return;
-		}
-		this.meld.meld?.toggleLayer?.(settings.scene, settings.layer);
-	}
-
-	/** The configured layer, only when it actually belongs to the configured scene. */
-	#layer(settings: ToggleLayerSettings, session: MeldSession): IdentifiedItem<LayerItem> | undefined {
-		const layer = session.getLayer(settings.layer);
-		return layer && layer.parent === settings.scene ? layer : undefined;
+		// The layer's real parent from the session is authoritative, so Meld is
+		// never sent a mismatched scene/layer pair even for stale stored scenes.
+		const layer: IdentifiedItem<LayerItem> | undefined = this.session().getLayer(settings.layer);
+		this.meld.meld?.toggleLayer?.(layer?.parent ?? settings.scene, settings.layer);
 	}
 }

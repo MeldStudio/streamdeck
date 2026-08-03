@@ -79,6 +79,12 @@ export class VolumeStepper extends MeldAction<VolumeStepperSettings> {
 			this.#optimisticGain.clearAll();
 		});
 		this.meld.on("gainChanged", ({ trackId, gain, muted }) => {
+			// Only cache tracks a visible context is bound to: an unbound track gets
+			// no further updates (e.g. an in-flight echo landing right after a
+			// rebind), so its entry could only ever go stale.
+			if (![...this.actions].some((action) => this.settingsFor(action.id)?.track === trackId)) {
+				return;
+			}
 			this.#trackGain.set(trackId, { gain, muted });
 			for (const action of this.actions) {
 				const settings = this.settingsFor(action.id);
@@ -204,6 +210,10 @@ export class VolumeStepper extends MeldAction<VolumeStepperSettings> {
 				this.meld.registerTrackObserver(action.id, track);
 			} else {
 				this.meld.unregisterTrackObserver(action.id);
+				// The track left this session (e.g. a project switch): its cache can
+				// only go stale while unobserved, and the snapshot is fresher if the
+				// same id ever returns.
+				this.#trackGain.delete(track);
 			}
 		}
 
@@ -234,17 +244,13 @@ export class VolumeStepper extends MeldAction<VolumeStepperSettings> {
 	}
 
 	/**
-	 * The best-known gain for a context: optimistic first, then the observer
-	 * cache, then the session snapshot (Meld only emits `gainUpdated` on change,
-	 * so after a plugin restart the snapshot is the only source until the first
-	 * change).
+	 * The best-known gain for a context: the user's optimistic value, else the
+	 * observer cache. The session snapshot carries no gain at all, so the
+	 * observer is the only source — registering one makes Meld emit the track's
+	 * current gain immediately, which is what hydrates a freshly-appeared dial.
 	 */
 	#currentGain(context: string, track: string): number | undefined {
-		return (
-			this.#optimisticGain.get(context) ??
-			this.#trackGain.get(track)?.gain ??
-			this.session().getTrack(track)?.gain
-		);
+		return this.#optimisticGain.get(context) ?? this.#trackGain.get(track)?.gain;
 	}
 
 	/** Merges optimistic gain, the observer cache, and the session snapshot. */
@@ -256,9 +262,9 @@ export class VolumeStepper extends MeldAction<VolumeStepperSettings> {
 		}
 		const cached = this.#trackGain.get(track);
 		return {
-			gain: this.#optimisticGain.get(context) ?? cached?.gain ?? item.gain,
+			gain: this.#currentGain(context, track),
 			// The gainUpdated fast path outruns full session updates, so the cache is
-			// fresher than the snapshot for mute (mirroring the gain precedence).
+			// fresher than the snapshot for mute.
 			muted: cached?.muted ?? item.muted ?? true,
 			monitoring: item.monitoring ?? false,
 			name: item.name,

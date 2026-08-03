@@ -8,8 +8,9 @@
 		"build": "rollup -c",
 		"watch": "rollup -c -w --watch.onEnd=\"streamdeck restart co.meldstudio.streamdeck\"",
 		"pack": "npm run build && streamdeck pack co.meldstudio.streamdeck.sdPlugin --force",
+		"fake-meld": "node --import ./test/register-hooks.js tools/fake-meld/main.ts",
 		"typecheck": "tsc --noEmit && tsc -p test",
-		"test": "node --test"
+		"test": "node --import ./test/register-hooks.js --test test/*.test.ts"
 	},
 	"devDependencies": {
 		"@elgato/cli": "^1.7.4",
