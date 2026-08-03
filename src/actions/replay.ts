@@ -49,6 +49,16 @@ export class Replay extends MeldAction<ReplaySettings> {
 		this.meld.on("closed", () => this.#trackGain.clear());
 	}
 
+	/** @inheritdoc */
+	protected override onDisappear(context: string): void {
+		// The observer context is shared by every replay key, so release it only
+		// once the last one goes away.
+		const remaining = [...this.actions].filter((action) => action.id !== context);
+		if (remaining.length === 0) {
+			this.meld.unregisterTrackObserver(GAIN_OBSERVER_CONTEXT);
+		}
+	}
+
 	/** Reflects the configured replay control's icon (derived from replay state). */
 	protected render({ action, settings, session }: RenderArgs<ReplaySettings>): Promise<void> {
 		this.#replay = this.#deriveReplay(session);
@@ -68,7 +78,11 @@ export class Replay extends MeldAction<ReplaySettings> {
 	override async onKeyUp(ev: KeyUpEvent<ReplaySettings>): Promise<void> {
 		const replayAction = ev.payload.settings.action || "replay";
 		const meld = this.meld.meld;
-		const { trackId, layerId, gain } = this.#replay;
+		const { trackId, layerId } = this.#replay;
+		// Read the gain at press time rather than reusing the value captured by the
+		// last render: `gainUpdated` refreshes the cache without re-rendering, so a
+		// fader moved in Meld since then would otherwise be stepped from a stale base.
+		const gain = trackId === undefined ? undefined : this.#trackGain.get(trackId);
 
 		switch (replayAction) {
 			case "replay":

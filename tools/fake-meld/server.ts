@@ -304,9 +304,12 @@ export class FakeMeld {
 				this.showScene(first);
 				return null;
 			case "setStagedScene": {
-				// The QML refuses to stage the scene that is already current.
+				// The QML resolves this one through Session.scenes only — unlike
+				// showScene, which also searches verticalScenesModel — so staging a
+				// vertical scene silently does nothing. It also refuses to stage the
+				// scene that is already current.
 				const scene = this.#sceneOrNull(first);
-				if (!scene || scene.current) {
+				if (!scene || scene.vertical || scene.current) {
 					return null;
 				}
 				for (const item of Object.values(this.#session.items)) {
@@ -378,7 +381,19 @@ export class FakeMeld {
 				return null;
 			}
 			case "toggleEffect": {
-				const effect = this.#session.items[third];
+				let effect = this.#session.items[third];
+				if (effect?.type !== "effect") {
+					// Meld falls back to the historical `<layerId>-<index>` id form so
+					// that profiles saved before effects had stable ids keep working.
+					const [layerId, rawIndex] = String(third).split("-");
+					const index = Number.parseInt(rawIndex, 10);
+					if (layerId && Number.isInteger(index)) {
+						const siblings = Object.values(this.#session.items).filter(
+							(item) => item.type === "effect" && item.parent === layerId,
+						);
+						effect = siblings[index];
+					}
+				}
 				if (effect?.type === "effect") {
 					effect.enabled = !effect.enabled;
 					this.#publishSession();

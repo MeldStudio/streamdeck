@@ -204,12 +204,20 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 		if (this.#lastState.get(action.id) === state) {
 			return;
 		}
-		// Cache only after a successful send so a failure is retried on the next
-		// render; several call sites are fire-and-forget, so contain the error here.
+		// Claim the cache slot before awaiting the send. Two updates can land in one
+		// event-loop turn, and if the cache still held the pre-send value a newer
+		// state matching it would be suppressed — leaving the key latched on the
+		// older value with a cache that agrees.
+		const previous = this.#lastState.get(action.id);
+		this.#lastState.set(action.id, state);
 		try {
 			await this.asKey(action).setState(state);
-			this.#lastState.set(action.id, state);
 		} catch (err) {
+			// The send failed, so restore the previous value and let the next render
+			// retry — unless a newer state has already claimed the slot.
+			if (this.#lastState.get(action.id) === state) {
+				this.#restore(this.#lastState, action.id, previous);
+			}
 			streamDeck.logger.error(`Failed to set state for ${action.id}`, err);
 		}
 	}
@@ -220,14 +228,34 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 	 * @param image Image path/data, or `undefined` to fall back to the manifest.
 	 */
 	protected async setKeyImage(action: MeldActionInstance<T>, image: string | undefined): Promise<void> {
-		if (this.#lastImage.get(action.id) === image) {
+		if (this.#lastImage.has(action.id) && this.#lastImage.get(action.id) === image) {
 			return;
 		}
+		const had = this.#lastImage.has(action.id);
+		const previous = this.#lastImage.get(action.id);
+		this.#lastImage.set(action.id, image);
 		try {
 			await this.asKey(action).setImage(image);
-			this.#lastImage.set(action.id, image);
 		} catch (err) {
+			if (this.#lastImage.get(action.id) === image) {
+				this.#restore(this.#lastImage, action.id, had ? previous : undefined, had);
+			}
 			streamDeck.logger.error(`Failed to set image for ${action.id}`, err);
+		}
+	}
+
+	/**
+	 * Puts a dedupe-cache entry back after a failed send.
+	 * @param cache The cache to restore into.
+	 * @param context Context id.
+	 * @param previous The value held before the failed send.
+	 * @param hadEntry Whether an entry existed at all; when false the key is removed.
+	 */
+	#restore<V>(cache: Map<string, V>, context: string, previous: V | undefined, hadEntry = previous !== undefined): void {
+		if (hadEntry) {
+			cache.set(context, previous as V);
+		} else {
+			cache.delete(context);
 		}
 	}
 

@@ -1,0 +1,131 @@
+// Copyright (c) 2024 Meld Studio, Inc.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+//
+// The replay controls act on a track the user never selects: the action finds it
+// by name. Its gain never appears in the session snapshot, so it is only known
+// through the track observer — which is what these tests pin down.
+
+import assert from "node:assert/strict";
+import { after, before, beforeEach, describe, test } from "node:test";
+import { setTimeout as sleep } from "node:timers/promises";
+
+import { Replay } from "../src/actions/replay.ts";
+import { MeldConnection } from "../src/meld/connection.ts";
+import { FakeMeld } from "../tools/fake-meld/server.ts";
+import { SessionBuilder } from "../tools/fake-meld/session.ts";
+import { FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+
+type Settings = { action?: string };
+
+/** A session containing the replay clip's layer and its audio track. */
+function replayScenario(gain: number): { scenario: ReturnType<SessionBuilder["build"]>; trackId: string } {
+	const b = new SessionBuilder("replay");
+	const scene = b.scene("Live", { current: true });
+	const clip = b.layer(scene, "Replay Clip", { mediaSource: "replay.mp4", isPlaying: true });
+	// The action locates the track by this exact name.
+	const trackId = b.track("Replay Clip", { parent: clip, gain });
+	return { scenario: b.build("replay", "replay clip"), trackId };
+}
+
+describe("Replay", () => {
+	let server: FakeMeld;
+	let connection: MeldConnection;
+	let action: Replay;
+	let key: FakeActionInstance<Settings>;
+	let trackId: string;
+	let port = 0;
+
+	before(async () => {
+		const built = replayScenario(0.5);
+		trackId = built.trackId;
+		server = new FakeMeld(built.scenario);
+		port = await server.listen(0);
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		const ready = new Promise<void>((resolve) => {
+			const off = connection.on("ready", () => {
+				off();
+				resolve();
+			});
+		});
+		connection.connect();
+		await ready;
+	});
+
+	after(async () => {
+		connection.dispose();
+		await server.close();
+	});
+
+	beforeEach(async () => {
+		server.setGain(trackId, 0.5);
+		server.invocations.length = 0;
+		action = new Replay(connection);
+		key = new FakeActionInstance<Settings>("replay-key", { action: "volume_up" });
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, { action: "volume_up" }) as never);
+		await sleep(80);
+	});
+
+	test("observes the replay track so its gain is known before any press", async () => {
+		const registrations = server.callsTo("registerTrackObserver");
+		assert.ok(registrations.length >= 1, "the replay track should be observed");
+		assert.equal(registrations.at(-1)?.args[1], trackId);
+	});
+
+	test("volume up raises the gain rather than slamming it to silence", async () => {
+		const before = server.gainOf(trackId) as number;
+		await action.onKeyUp(keyEvent(key, { action: "volume_up" }) as never);
+		await sleep(80);
+
+		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
+		assert.ok(sent !== undefined, "the press should reach Meld");
+		assert.ok(sent > before, `volume up should raise gain from ${before}, got ${sent}`);
+		// Stepping from an assumed 0 would land near the -60 dB floor.
+		assert.ok(sent > 0.1, `volume up must not collapse the track toward silence (${sent})`);
+	});
+
+	test("volume down lowers the gain by a step", async () => {
+		const before = server.gainOf(trackId) as number;
+		await action.onKeyUp(keyEvent(key, { action: "volume_down" }) as never);
+		await sleep(80);
+
+		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
+		assert.ok(sent < before, `volume down should lower gain from ${before}, got ${sent}`);
+		assert.ok(sent > 0, "one step down from mid-scale must not reach silence");
+	});
+
+	test("steps from the gain Meld reports now, not the one captured at render", async () => {
+		// A fader moved in Meld refreshes the observer cache without re-rendering
+		// the key, so a press must read the current value.
+		server.setGain(trackId, 0.2);
+		await sleep(80);
+
+		await action.onKeyUp(keyEvent(key, { action: "volume_up" }) as never);
+		await sleep(80);
+
+		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
+		assert.ok(sent > 0.2 && sent < 0.4, `expected a step up from 0.2, got ${sent}`);
+	});
+
+	test("mute and cue presses target the replay track", async () => {
+		await action.onKeyUp(keyEvent(key, { action: "mute" }) as never);
+		await sleep(60);
+		assert.deepEqual(server.callsTo("setMuted").at(-1)?.args, [trackId, true]);
+
+		await action.onKeyUp(keyEvent(key, { action: "cue" }) as never);
+		await sleep(60);
+		assert.deepEqual(server.callsTo("setProperty").at(-1)?.args, [trackId, "monitoring", true]);
+	});
+
+	test("releases the track observer once the last replay key disappears", async () => {
+		server.invocations.length = 0;
+		await action.onWillDisappear({ action: key, payload: { settings: {} } } as never);
+		await sleep(60);
+
+		assert.equal(
+			server.callsTo("unregisterTrackObserver").length,
+			1,
+			"the shared observer must be released when no replay key remains",
+		);
+	});
+});
