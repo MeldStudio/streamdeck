@@ -93,20 +93,66 @@ export class FakeActionInstance<T extends JsonObject = JsonObject> {
 	}
 }
 
+/** The live visible set behind each mounted action's `actions` getter. */
+const mounted = new WeakMap<object, FakeActionInstance<never>[]>();
+
 /**
  * Attaches fake instances to an action, replacing the SDK-backed `actions`
  * getter that enumerates visible contexts.
+ *
+ * The set is live: {@link disappear} removes an instance from it before the
+ * action's handler runs, which is what the SDK does (it drops the context from
+ * its action store on a prepended willDisappear listener). A frozen set would
+ * let code that asks "is any instance still visible?" always answer yes.
  * @param action The action under test.
- * @param instances The visible instances it should see.
+ * @param instances The instances visible to begin with.
  */
-export function mount<T extends JsonObject>(
-	action: MeldAction<T>,
-	instances: FakeActionInstance<T>[],
-): void {
+export function mount<T extends JsonObject>(action: MeldAction<T>, instances: FakeActionInstance<T>[]): void {
+	const live = [...instances] as unknown as FakeActionInstance<never>[];
+	mounted.set(action, live);
 	Object.defineProperty(action, "actions", {
 		configurable: true,
-		get: () => instances[Symbol.iterator](),
+		get: () => live[Symbol.iterator](),
 	});
+}
+
+/**
+ * Makes an instance visible and delivers `willAppear`, as the app does.
+ * @param action The action under test.
+ * @param instance The appearing instance.
+ * @param settings Settings the SDK reports with the event.
+ * @param controller Whether the instance is a key or an encoder.
+ */
+export async function appear<T extends JsonObject>(
+	action: MeldAction<T>,
+	instance: FakeActionInstance<T>,
+	settings: T,
+	controller: "Keypad" | "Encoder" = "Keypad",
+): Promise<void> {
+	const live = mounted.get(action);
+	if (live && !live.includes(instance as never)) {
+		live.push(instance as never);
+	}
+	await action.onWillAppear(willAppear(instance, settings, controller) as never);
+}
+
+/**
+ * Removes an instance from the visible set and delivers `willDisappear`.
+ * @param action The action under test.
+ * @param instance The disappearing instance.
+ */
+export async function disappear<T extends JsonObject>(
+	action: MeldAction<T>,
+	instance: FakeActionInstance<T>,
+): Promise<void> {
+	const live = mounted.get(action);
+	const index = live?.indexOf(instance as never) ?? -1;
+	if (index >= 0) {
+		// Removed first: the SDK's store no longer yields the context by the time
+		// the plugin's handler runs.
+		live?.splice(index, 1);
+	}
+	await action.onWillDisappear({ action: instance, payload: { settings: {} } } as never);
 }
 
 /**

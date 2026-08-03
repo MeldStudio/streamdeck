@@ -15,7 +15,7 @@ import { VolumeStepper } from "../src/actions/volume-stepper.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
 import { SessionBuilder } from "../tools/fake-meld/session.ts";
-import { dialRotate, FakeActionInstance, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { dialRotate, disappear, FakeActionInstance, mount, willAppear } from "./helpers/fake-stream-deck.ts";
 
 type Settings = { track?: string; stepsize?: string; metertype?: string };
 
@@ -73,7 +73,7 @@ describe("VolumeStepper", () => {
 	afterEach(async () => {
 		// The observer registry lives on the shared connection, so a context left
 		// registered would suppress the next test's hydrating gain update.
-		await action.onWillDisappear({ action: dial, payload: { settings: {} } } as never);
+		await disappear(action, dial);
 		await sleep(20);
 	});
 
@@ -90,6 +90,11 @@ describe("VolumeStepper", () => {
 		assert.ok(painted, "the dial should have been painted");
 		assert.notEqual(painted.value, "--", "gain should be known once the observer is registered");
 		assert.equal(painted.title, "Microphone");
+
+		// Leave nothing visible behind: an action stays subscribed to the shared
+		// connection for the process's life, so a dial left mounted keeps
+		// re-registering on later tests' session updates.
+		await disappear(fresh, instance);
 	});
 
 	test("a rotation sends the stepped gain to Meld", async () => {
@@ -304,12 +309,17 @@ describe("VolumeStepper", () => {
 		// The ids are persisted, so they come back identical — and a registration
 		// deduped on "same context, same track" would never be re-sent, leaving the
 		// dial frozen with no gain updates for the rest of the connection.
+		// Count only what this test provokes: the shared server accumulates every
+		// earlier test's registrations, so an un-reset counter is already high
+		// enough to satisfy the assertion before the restore happens.
+		server.invocations.length = 0;
 		server.loadScenario(audioScenario(0.4).scenario);
 		await sleep(800);
 
-		assert.ok(
-			server.callsTo("registerTrackObserver").length >= 2,
-			`the observer must be re-registered after a restore; saw ${server.callsTo("registerTrackObserver").length}`,
+		assert.equal(
+			server.callsTo("registerTrackObserver").length,
+			1,
+			"the restore must provoke exactly one re-registration",
 		);
 
 		// And it must actually be live: an external move has to reach the dial.

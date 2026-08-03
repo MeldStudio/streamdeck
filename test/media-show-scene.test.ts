@@ -155,6 +155,24 @@ describe("Media and ShowScene", () => {
 		assert.equal(server.callsTo("callFunctionWithArgs").length, 0);
 	});
 
+	test("a stale stored scene does not make the media key inert", async () => {
+		// Upgraded profiles can hold a scene from a previous selection. Meld's
+		// callFunction resolves the layer by id alone, so the key must keep working
+		// rather than silently doing nothing — the same tolerance the toggle actions
+		// apply to their stored chains.
+		const settings = { scene: ids.other, layer: ids.clip, action: "toggle" };
+		const action = new Media(connection);
+		const key = new FakeActionInstance("m", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(60);
+		assert.ok(key.image?.includes("pause"), "the key must still reflect the playing clip");
+
+		await action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(150);
+		assert.deepEqual(server.callsTo("callFunction").at(-1)?.args, [ids.clip, "pause"]);
+	});
+
 	test("the media key holds its icon through a connection blip", async () => {
 		// The clip never stopped playing; flipping to "play" would tell the user it
 		// did, and it would stay wrong for the whole reconnect.

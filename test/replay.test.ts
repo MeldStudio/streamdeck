@@ -13,7 +13,7 @@ import { Replay } from "../src/actions/replay.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
 import { SessionBuilder } from "../tools/fake-meld/session.ts";
-import { FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { disappear, FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
 
 type Settings = { action?: string };
 
@@ -89,7 +89,7 @@ describe("Replay", () => {
 		// Replay's observer context is a constant shared by every replay key, and
 		// the registry lives on the connection, so a context left registered makes
 		// the next test's registration a no-op and its gain never arrives.
-		await action.onWillDisappear({ action: key, payload: { settings: {} } } as never);
+		await disappear(action, key);
 		await sleep(20);
 	});
 
@@ -154,7 +154,7 @@ describe("Replay", () => {
 		await sleep(40);
 		server.invocations.length = 0;
 
-		await action.onWillDisappear({ action: second, payload: { settings: {} } } as never);
+		await disappear(action, second);
 		await sleep(60);
 
 		assert.equal(
@@ -169,7 +169,7 @@ describe("Replay", () => {
 
 	test("releases the track observer once the last replay key disappears", async () => {
 		server.invocations.length = 0;
-		await action.onWillDisappear({ action: key, payload: { settings: {} } } as never);
+		await disappear(action, key);
 		await sleep(60);
 
 		assert.equal(

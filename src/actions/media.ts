@@ -119,14 +119,24 @@ export class Media extends MeldAction<MediaSettings> {
 		}
 	}
 
-	/** Resolves the configured media layer, verifying it belongs to the scene. */
+	/**
+	 * Resolves the configured media layer.
+	 *
+	 * The layer id alone identifies it, and that is all Meld needs:
+	 * `callFunction` resolves the object by id and never consults a scene. The
+	 * stored scene is not required to match, because an upgraded profile can hold
+	 * one from a previous selection — the same tolerance toggle-layer and
+	 * toggle-effect apply, so the key keeps working instead of going inert.
+	 * @param settings The action's settings.
+	 * @param session The session to resolve against.
+	 */
 	#findMediaLayer(settings: MediaSettings, session: MeldSession): IdentifiedItem<LayerItem> | undefined {
 		const { scene, layer } = settings;
 		if (!scene || !layer) {
 			return undefined;
 		}
 		const item = session.getLayer(layer);
-		if (!item || item.parent !== scene || !item.mediaSource) {
+		if (!item || !item.mediaSource) {
 			return undefined;
 		}
 		return item;
