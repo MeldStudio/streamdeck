@@ -111,6 +111,48 @@ describe("Replay", () => {
 		assert.ok(sent > 0.1, `volume up must not collapse the track toward silence (${sent})`);
 	});
 
+	test("a volume press before the track's gain is known does nothing", async () => {
+		// The track is identified from the session, but its gain only arrives via
+		// the observer. In the window between the two there is no base to step from,
+		// and assuming 0 would send the clip to the -60 dB floor on the first press.
+		const slow = new FakeMeld(replayScenario(0.5).scenario, { echoDelayMs: 1_000 });
+		const slowPort = await slow.listen(0);
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = slowConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			slowConnection.connect();
+			await ready;
+
+			const cold = new Replay(slowConnection);
+			const instance = new FakeActionInstance<Settings>("replay-cold", { action: "volume_up" });
+			mount(cold, [instance]);
+			await cold.onWillAppear(willAppear(instance, { action: "volume_up" }) as never);
+			await sleep(80); // rendered and observing, but the gain echo is still in flight
+
+			assert.ok(slow.callsTo("registerTrackObserver").length >= 1, "the track is identified and observed");
+			await cold.onKeyUp(keyEvent(instance, { action: "volume_up" }) as never);
+			await sleep(80);
+
+			assert.equal(slow.callsTo("setGain").length, 0, "with no known gain the press must not send one");
+
+			// Once the gain lands the same press works normally.
+			await sleep(1_100);
+			await cold.onKeyUp(keyEvent(instance, { action: "volume_up" }) as never);
+			await sleep(80);
+			const sent = slow.callsTo("setGain").at(-1)?.args[1] as number;
+			assert.ok(sent > 0.5, `expected a step up from 0.5 once known, got ${sent}`);
+		} finally {
+			slowConnection.dispose();
+			await slow.close();
+		}
+	});
+
 	test("volume down lowers the gain by a step", async () => {
 		const before = server.gainOf(trackId) as number;
 		await press(action, key, { action: "volume_down" });

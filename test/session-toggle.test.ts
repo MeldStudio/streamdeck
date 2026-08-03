@@ -305,6 +305,15 @@ describe("session toggles", () => {
 			"two 'show' presses must leave the layer visible",
 		);
 		assert.equal(key.state, 1);
+		// Sampling only the final state would miss a key that flashed back to
+		// "hidden" while waiting — which is what a TTL shorter than the
+		// confirmation latency produces. (Repeats of 1 are expected: a key press
+		// clears the dedupe cache, so the idempotent second press repaints.)
+		assert.deepEqual(
+			key.states.slice(1),
+			key.states.slice(1).map(() => 1),
+			`the key must never go dark after lighting; painted ${JSON.stringify(key.states)}`,
+		);
 	});
 
 	test("a toggle press repaints immediately rather than waiting for the snapshot", async () => {
