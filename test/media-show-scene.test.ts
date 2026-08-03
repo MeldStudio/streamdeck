@@ -238,19 +238,29 @@ describe("Media and ShowScene", () => {
 			await sleep(100);
 			assert.equal(key.state, 1, "the press lights the key immediately");
 
+			// A repaint driven by something other than the session — here a recording
+			// change — re-renders from the snapshot, which still shows the old current
+			// scene. The pending request is what has to keep the key lit; without it
+			// this render paints 0.
+			slow.setRecording(true);
+			await sleep(120);
+
 			// Meld's autosave timer is retriggerable, so ordinary concurrent activity
 			// — a fader move, a layer edit — keeps pushing the confirmation out. Each
 			// edit here resets the 600ms debounce, which is the realistic case where a
-			// short optimistic TTL loses the race and the key blinks dark.
+			// short optimistic TTL loses the race.
 			for (let i = 0; i < 6; i++) {
 				slow.setMuted(slowIds.track, i % 2 === 0);
 				await sleep(150);
-				assert.equal(key.state, 1, `the key went dark ~${100 + (i + 1) * 150}ms after the press`);
 			}
 
 			// Let the edits stop so the snapshot finally lands.
 			await sleep(800);
-			assert.equal(key.state, 1, "and it stays lit once the confirmation arrives");
+			assert.equal(key.state, 1, "the key is lit once the confirmation arrives");
+			assert.ok(
+				!key.states.includes(0),
+				`the key must never blink dark while waiting; painted ${JSON.stringify(key.states)}`,
+			);
 
 			assert.equal(
 				(slow.session.items[slowIds.other] as { current: boolean }).current,

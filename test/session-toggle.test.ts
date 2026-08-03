@@ -249,7 +249,10 @@ describe("session toggles", () => {
 		const settings = {
 			scene: ids.sceneA,
 			layer: ids.layerA,
-			effect: legacyEffectId(ids.layerA, 1),
+			// Index 0, not 1: the model order and the id-sorted snapshot order are a
+			// three-element reversal here, so index 1 is their fixed point and could
+			// not tell the two apart.
+			effect: legacyEffectId(ids.layerA, 0),
 		};
 		const action = new ToggleEffect(connection);
 		const key = new FakeActionInstance("k", settings);
@@ -264,17 +267,17 @@ describe("session toggles", () => {
 		assert.equal(calls.length, 1, "the press must reach Meld");
 		assert.deepEqual(
 			calls[0].args,
-			[ids.sceneA, ids.layerA, legacyEffectId(ids.layerA, 1)],
+			[ids.sceneA, ids.layerA, legacyEffectId(ids.layerA, 0)],
 			"the legacy id must be forwarded untouched for Meld to resolve",
 		);
-		// Index 1 in model order is "Sharpen" — not whichever effect happens to sort
-		// second in the snapshot.
+		// Index 0 in model order is "Blur"; in id-sorted snapshot order it would be
+		// "Chroma Key", so only one of the two can be right.
 		assert.equal(
-			(server.session.items[ids.effectA2] as { enabled: boolean }).enabled,
+			(server.session.items[ids.effectA] as { enabled: boolean }).enabled,
 			false,
 			"the effect at that model index must be the one that toggled",
 		);
-		assert.equal((server.session.items[ids.effectA] as { enabled: boolean }).enabled, true);
+		assert.equal((server.session.items[ids.effectA2] as { enabled: boolean }).enabled, true);
 		assert.equal((server.session.items[ids.effectA3] as { enabled: boolean }).enabled, true);
 	});
 

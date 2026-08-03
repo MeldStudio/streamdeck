@@ -138,9 +138,12 @@ export class TransitionStepper extends MeldAction<JsonObject> {
 		// Vertical-canvas twins are excluded: Meld resolves `setStagedScene` through
 		// the horizontal scene model only (unlike `showScene`), so staging one is a
 		// silent no-op and the dial would appear to select a scene it cannot reach.
+		// The `vertical` flag is the whole test — the old plugin matched a "(linked)"
+		// name suffix, which Meld deliberately stopped appending, so keeping that
+		// would only drop scenes a user happened to name that way.
 		const scenes = session
 			.scenes()
-			.filter((scene) => !scene.vertical && !scene.name.includes("(linked)"))
+			.filter((scene) => !scene.vertical)
 			.sort((a, b) => a.index - b.index);
 		this.#scenes = scenes
 			.filter((scene) => !scene.current)
@@ -149,6 +152,7 @@ export class TransitionStepper extends MeldAction<JsonObject> {
 		// Right after a transition the staged flag can sit on the current scene;
 		// nothing selectable is staged then, but it still moves the rotation anchor.
 		const stagedAny = scenes.find((scene) => scene.staged);
+
 		if (stagedAny) {
 			this.#anchorId = stagedAny.id;
 			this.#anchorIndex = stagedAny.index;

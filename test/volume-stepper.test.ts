@@ -298,6 +298,34 @@ describe("VolumeStepper", () => {
 		}
 	});
 
+	test("keeps following the track after Meld restores the same session", async () => {
+		// Reopening a project tears down and rebuilds Meld's audio tracks without
+		// dropping the socket, which silently discards every observer registration.
+		// The ids are persisted, so they come back identical — and a registration
+		// deduped on "same context, same track" would never be re-sent, leaving the
+		// dial frozen with no gain updates for the rest of the connection.
+		server.loadScenario(audioScenario(0.4).scenario);
+		await sleep(150);
+
+		assert.ok(
+			server.callsTo("registerTrackObserver").length >= 2,
+			`the observer must be re-registered after a restore; saw ${server.callsTo("registerTrackObserver").length}`,
+		);
+
+		// And it must actually be live: an external move has to reach the dial.
+		dial.reset();
+		server.setGain(trackId, 0.25);
+		await sleep(100);
+		assert.equal(dial.feedback?.value, "-12 dB", "the dial must still follow the restored track");
+
+		// The next tick steps from Meld's value, not a frozen one.
+		const before = server.callsTo("setGain").length;
+		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
+		await sleep(80);
+		const sent = server.callsTo("setGain")[before].args[1] as number;
+		assert.ok(sent > 0.25 && sent < 0.35, `expected a step up from 0.25, got ${sent}`);
+	});
+
 	test("an external gain change in Meld repaints the dial", async () => {
 		server.setGain(trackId, 0.25);
 		await sleep(80);

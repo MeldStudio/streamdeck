@@ -34,7 +34,9 @@ export class Media extends MeldAction<MediaSettings> {
 	 * republishes behind a debounced autosave, so without this a second press
 	 * would recompute from the same stale value.
 	 */
-	readonly #optimisticPlaying = new OptimisticStore<boolean>(MEDIA_CONFIRM_TTL_MS);
+	readonly #optimisticPlaying = new OptimisticStore<boolean>(MEDIA_CONFIRM_TTL_MS, () =>
+		void this.renderAll("sessionChanged"),
+	);
 
 	/** Reflects the media layer's playback state on the key. */
 	protected async render({ action, settings, session, reason }: RenderArgs<MediaSettings>): Promise<void> {

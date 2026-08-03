@@ -62,6 +62,17 @@ export class MeldConnection {
 	/** Active track observers, keyed by the owning context id → trackId. */
 	readonly #observers = new Map<string, string>();
 
+	/**
+	 * Contexts whose registration Meld is currently known to hold.
+	 *
+	 * Meld drops every track observer whenever it tears down its audio tracks —
+	 * restoring or reopening a session does that without closing the socket, and
+	 * track ids are persisted, so the same ids come back. Nothing in the snapshot
+	 * distinguishes that from an ordinary edit, so this is cleared on every
+	 * session change and the next register call is allowed through.
+	 */
+	readonly #registered = new Set<string>();
+
 	/** The Meld WebChannel endpoint this connection targets. */
 	readonly #url: string;
 
@@ -137,18 +148,19 @@ export class MeldConnection {
 	 */
 	registerTrackObserver(context: string, trackId: string): void {
 		const existing = this.#observers.get(context);
-		if (existing === trackId) {
+		if (existing === trackId && this.#registered.has(context)) {
 			return;
 		}
 		// Switching tracks on the same context: drop the previous registration.
 		// Optional-chain the methods too — a Meld build without observer support
 		// must degrade to snapshot-only gain, not throw.
-		if (existing !== undefined && this.#ready) {
+		if (existing !== undefined && existing !== trackId && this.#ready) {
 			this.#meld?.unregisterTrackObserver?.(context, existing);
 		}
 		this.#observers.set(context, trackId);
 		if (this.#ready) {
 			this.#meld?.registerTrackObserver?.(context, trackId);
+			this.#registered.add(context);
 		}
 	}
 
@@ -162,6 +174,7 @@ export class MeldConnection {
 			return;
 		}
 		this.#observers.delete(context);
+		this.#registered.delete(context);
 		if (this.#ready) {
 			this.#meld?.unregisterTrackObserver?.(context, trackId);
 		}
@@ -257,7 +270,14 @@ export class MeldConnection {
 		// throws (e.g. a Meld build missing a signal), the dispatch guard closes the
 		// socket and the reconnect path must not find a half-initialized "ready"
 		// connection.
-		meld.sessionChanged.connect(() => this.#emitter.emit("sessionChanged", meld.session));
+		meld.sessionChanged.connect(() => {
+			// A session republish may be the tail of a restore that destroyed and
+			// rebuilt Meld's audio tracks, taking every observer registration with it
+			// while the socket stayed up. Forget what Meld is holding so the
+			// re-render's register call is sent rather than deduped away.
+			this.#registered.clear();
+			this.#emitter.emit("sessionChanged", meld.session);
+		});
 		meld.isStreamingChanged.connect(() => this.#emitter.emit("streamingChanged", !!meld.isStreaming));
 		meld.isRecordingChanged.connect(() => this.#emitter.emit("recordingChanged", !!meld.isRecording));
 		// Optional: part of the track-observer feature — a build without it must
@@ -291,6 +311,7 @@ export class MeldConnection {
 		}
 		this.#ready = false;
 		this.#meld = undefined;
+		this.#registered.clear();
 		this.#emitter.emit("closed");
 	}
 
