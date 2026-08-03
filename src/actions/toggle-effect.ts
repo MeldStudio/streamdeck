@@ -3,7 +3,7 @@
 
 import { action } from "@elgato/streamdeck";
 
-import type { EffectItem, IdentifiedItem, MeldSession } from "../meld/index.js";
+import type { IdentifiedItem, LayerItem, MeldSession } from "../meld/index.js";
 import { SessionToggleAction } from "./session-toggle.js";
 
 /** Settings for {@link ToggleEffect}. */
@@ -32,49 +32,59 @@ export class ToggleEffect extends SessionToggleAction<ToggleEffectSettings> {
 		// The effect id alone identifies the target. Legacy profiles can hold a
 		// scene/layer from previous selections alongside it; the effect must keep
 		// working across the upgrade, so the stored chain is not required to match.
-		const effect = this.#effect(settings, session);
+		const effect = session.getEffect(settings.effect);
 		return effect ? effect.enabled : null;
+	}
+
+	/**
+	 * A legacy id names an effect by its position in Meld's own effects model, an
+	 * order the session snapshot does not carry, so the press has to go ahead
+	 * without knowing the effect's current state.
+	 */
+	protected override actsWithUnknownState(settings: ToggleEffectSettings): boolean {
+		return this.#legacyLayer(settings) !== undefined;
 	}
 
 	protected toggle(settings: ToggleEffectSettings): void {
 		if (!settings.scene || !settings.layer || !settings.effect) {
 			return;
 		}
+		const session = this.session();
+		const effect = session.getEffect(settings.effect);
+		if (!effect) {
+			// A legacy `<layerId>-<index>` id. Meld resolves it against its effects
+			// model — the order the user sees — which the snapshot does not expose,
+			// so resolving it here would pick a different effect. Pass it through
+			// verbatim with the stored chain, exactly as the pre-migration plugin
+			// did, and let Meld apply its own fallback.
+			this.meld.meld?.toggleEffect?.(settings.scene, settings.layer, settings.effect);
+			return;
+		}
 		// The session's real parent chain is authoritative, so Meld is never sent
 		// a mismatched triple even for stale stored scene/layer ids.
-		const session = this.session();
-		const effect = this.#effect(settings, session);
-		const effectId = effect?.id ?? settings.effect;
-		const layerId = effect?.parent ?? settings.layer;
+		const layerId = effect.parent;
 		const sceneId = session.getLayer(layerId)?.parent ?? settings.scene;
-		this.meld.meld?.toggleEffect?.(sceneId, layerId, effectId);
+		this.meld.meld?.toggleEffect?.(sceneId, layerId, effect.id);
 	}
 
 	/**
-	 * Resolves the configured effect, accepting the historical id form as well.
+	 * The layer a legacy `<layerId>-<index>` id refers to, when the stored effect
+	 * id is in that historical form and the layer still exists.
 	 *
-	 * Before effects had stable ids the inspector stored them as
-	 * `<layerId>-<index>`, and profiles upgraded from that plugin still do. Meld
-	 * never publishes that form in the session snapshot — it only accepts it as a
-	 * `toggleEffect` argument — so resolving it here is what keeps those keys
-	 * alive instead of reporting the effect as missing.
+	 * Before effects had stable ids the inspector stored them this way, and
+	 * upgraded profiles still do. Meld never publishes the form in the snapshot —
+	 * it only accepts it as a `toggleEffect` argument.
 	 * @param settings The action's settings.
-	 * @param session The session to resolve against.
 	 */
-	#effect(settings: ToggleEffectSettings, session: MeldSession): IdentifiedItem<EffectItem> | undefined {
-		const direct = session.getEffect(settings.effect);
-		if (direct) {
-			return direct;
-		}
-		const separator = settings.effect?.lastIndexOf("-") ?? -1;
-		if (!settings.effect || separator <= 0) {
+	#legacyLayer(settings: ToggleEffectSettings): IdentifiedItem<LayerItem> | undefined {
+		const session = this.session();
+		if (!settings.effect || session.getEffect(settings.effect)) {
 			return undefined;
 		}
-		const layerId = settings.effect.slice(0, separator);
-		const index = Number.parseInt(settings.effect.slice(separator + 1), 10);
-		if (!Number.isInteger(index) || index < 0 || !session.getLayer(layerId)) {
+		const parts = settings.effect.split("-");
+		if (parts.length !== 2 || !/^\d+$/.test(parts[1])) {
 			return undefined;
 		}
-		return session.effects(layerId)[index];
+		return session.getLayer(parts[0]);
 	}
 }

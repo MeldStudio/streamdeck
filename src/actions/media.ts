@@ -5,6 +5,7 @@ import { action, type KeyUpEvent } from "@elgato/streamdeck";
 
 import type { IdentifiedItem, LayerItem, MeldSession } from "../meld/index.js";
 import { MeldAction, type RenderArgs } from "./base.js";
+import { OptimisticStore } from "./optimistic.js";
 
 /** Settings for {@link Media}. */
 type MediaSettings = {
@@ -17,9 +18,24 @@ const ICON_PLAY = "assets/Media/Key Icon/media-controls-play";
 const ICON_PAUSE = "assets/Media/Key Icon/media-controls-pause";
 const ICON_RESTART = "assets/Media/Key Icon/media-controls-skip-back";
 
+/**
+ * How long a press keeps precedence over the snapshot. Meld republishes the
+ * session behind a retriggerable autosave, so the confirmation is slower than a
+ * gain echo; this outlasts it while still self-correcting a press that never
+ * took effect.
+ */
+const MEDIA_CONFIRM_TTL_MS = 3_000;
+
 /** Controls playback of a media layer (play / pause / restart / toggle). */
 @action({ UUID: "co.meldstudio.streamdeck.media" })
 export class Media extends MeldAction<MediaSettings> {
+	/**
+	 * Playback state a press is waiting on, until the snapshot catches up. Meld
+	 * republishes behind a debounced autosave, so without this a second press
+	 * would recompute from the same stale value.
+	 */
+	readonly #optimisticPlaying = new OptimisticStore<boolean>(MEDIA_CONFIRM_TTL_MS);
+
 	/** Reflects the media layer's playback state on the key. */
 	protected async render({ action, settings, session, reason }: RenderArgs<MediaSettings>): Promise<void> {
 		// With no snapshot there is nothing authoritative to show; keep the last
@@ -28,7 +44,17 @@ export class Media extends MeldAction<MediaSettings> {
 			return;
 		}
 		const layer = this.#findMediaLayer(settings, session);
-		await this.setKeyImage(action, this.#iconFor(settings.action, layer?.isPlaying ?? false));
+		if (layer && this.#optimisticPlaying.get(action.id) === layer.isPlaying) {
+			// The snapshot caught up with the press; stop overriding it.
+			this.#optimisticPlaying.clear(action.id);
+		}
+		const playing = this.#optimisticPlaying.get(action.id) ?? layer?.isPlaying ?? false;
+		await this.setKeyImage(action, this.#iconFor(settings.action, playing));
+	}
+
+	/** @inheritdoc */
+	protected override onDisappear(context: string): void {
+		this.#optimisticPlaying.clear(context);
 	}
 
 	/** @inheritdoc */
@@ -53,22 +79,27 @@ export class Media extends MeldAction<MediaSettings> {
 			case "restart":
 				await this.setKeyImage(ev.action, ICON_RESTART);
 				if (layer) {
-					meld?.callFunctionWithArgs?.(layer.id, "seekTo", [0]);
+					// `skipBack` is what Meld's own restart control uses: it returns to
+					// the loop's start point on a trimmed clip, where seekTo(0) would
+					// jump outside the configured region.
+					meld?.callFunction?.(layer.id, "skipBack");
 				}
 				break;
-			default:
+			default: {
 				// "toggle" (and unset): play when paused, pause when playing.
 				if (!layer) {
 					return;
 				}
-				if (layer.isPlaying) {
-					await this.setKeyImage(ev.action, this.#iconFor(settings.action, false));
-					meld?.callFunction?.(layer.id, "pause");
-				} else {
-					await this.setKeyImage(ev.action, this.#iconFor(settings.action, true));
-					meld?.callFunction?.(layer.id, "play");
-				}
+				// `isPlaying` comes from the session snapshot, which Meld only
+				// republishes behind its autosave debounce. Two presses inside that
+				// window would both read the pre-press value and send the same command
+				// twice, so the pending intent takes precedence.
+				const playing = this.#optimisticPlaying.get(ev.action.id) ?? layer.isPlaying;
+				this.#optimisticPlaying.set(ev.action.id, !playing);
+				await this.setKeyImage(ev.action, this.#iconFor(settings.action, !playing));
+				meld?.callFunction?.(layer.id, playing ? "pause" : "play");
 				break;
+			}
 		}
 	}
 

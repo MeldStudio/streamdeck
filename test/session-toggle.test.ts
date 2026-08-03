@@ -29,11 +29,16 @@ function build(namespace: string): {
 	const sceneB = b.scene("B");
 	const layerA = b.layer(sceneA, "Camera", { visible: true });
 	const layerB = b.layer(sceneB, "Slides", { visible: false });
+	// Three effects, so a legacy `<layerId>-<index>` id genuinely has to pick the
+	// right one. Their ids sort into a different order than the model order, which
+	// is exactly the trap: resolving by snapshot order would choose another effect.
 	const effectA = b.effect(layerA, "Blur", { enabled: true });
+	const effectA2 = b.effect(layerA, "Sharpen", { enabled: true });
+	const effectA3 = b.effect(layerA, "Chroma Key", { enabled: true });
 	const track = b.track("Microphone", { gain: 0.7, muted: false });
 	return {
 		scenario: b.build(namespace, "toggles"),
-		ids: { sceneA, sceneB, layerA, layerB, effectA, track },
+		ids: { sceneA, sceneB, layerA, layerB, effectA, effectA2, effectA3, track },
 	};
 }
 
@@ -235,32 +240,42 @@ describe("session toggles", () => {
 		assert.deepEqual(ghostKey.states, [], "no state should be painted for a missing track");
 	});
 
-	test("an upgraded profile's <layerId>-<index> effect id still works", async () => {
-		// Meld only ever publishes an effect's real id, but profiles written before
-		// effects had stable ids store this form — and Meld still accepts it as a
-		// toggleEffect argument. Treating it as "missing" would leave those keys
-		// permanently dead after the upgrade.
+	test("an upgraded profile's <layerId>-<index> effect id toggles the right effect", async () => {
+		// Meld resolves this form against its own effects model — the order the user
+		// sees — which the snapshot does not expose (Qt serializes items sorted by
+		// id). Resolving the index here would therefore pick a different effect, so
+		// the id is forwarded verbatim and Meld does the lookup, as it did for the
+		// pre-migration plugin.
 		const settings = {
 			scene: ids.sceneA,
 			layer: ids.layerA,
-			effect: legacyEffectId(ids.layerA, 0),
+			effect: legacyEffectId(ids.layerA, 1),
 		};
 		const action = new ToggleEffect(connection);
 		const key = new FakeActionInstance("k", settings);
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(40);
-		assert.equal(key.state, 1, "the key must reflect the effect the legacy id points at");
 
 		action.onKeyUp(keyEvent(key, settings) as never);
 		await sleep(120);
 
-		assert.equal(server.callsTo("toggleEffect").length, 1, "the press must reach Meld");
-		assert.equal(
-			(server.session.items[ids.effectA] as { enabled: boolean }).enabled,
-			false,
-			"the effect the legacy id refers to must actually toggle",
+		const calls = server.callsTo("toggleEffect");
+		assert.equal(calls.length, 1, "the press must reach Meld");
+		assert.deepEqual(
+			calls[0].args,
+			[ids.sceneA, ids.layerA, legacyEffectId(ids.layerA, 1)],
+			"the legacy id must be forwarded untouched for Meld to resolve",
 		);
+		// Index 1 in model order is "Sharpen" — not whichever effect happens to sort
+		// second in the snapshot.
+		assert.equal(
+			(server.session.items[ids.effectA2] as { enabled: boolean }).enabled,
+			false,
+			"the effect at that model index must be the one that toggled",
+		);
+		assert.equal((server.session.items[ids.effectA] as { enabled: boolean }).enabled, true);
+		assert.equal((server.session.items[ids.effectA3] as { enabled: boolean }).enabled, true);
 	});
 
 	test("an unconfigured key neither paints nor sends", async () => {

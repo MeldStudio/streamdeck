@@ -144,6 +144,29 @@ describe("Replay", () => {
 		assert.deepEqual(server.callsTo("setProperty").at(-1)?.args, [trackId, "monitoring", true]);
 	});
 
+	test("keeps the observer while another replay key is still on screen", async () => {
+		// The observer context is shared by every replay key, so releasing it when
+		// only one of two disappears would silently stop gain updates for the one
+		// still visible — and its next volume press would step from a stale base.
+		const second = new FakeActionInstance<Settings>("replay-key-2", { action: "mute" });
+		mount(action, [key, second]);
+		await action.onWillAppear(willAppear(second, { action: "mute" }) as never);
+		await sleep(40);
+		server.invocations.length = 0;
+
+		await action.onWillDisappear({ action: second, payload: { settings: {} } } as never);
+		await sleep(60);
+
+		assert.equal(
+			server.callsTo("unregisterTrackObserver").length,
+			0,
+			"the observer must survive while a replay key remains",
+		);
+
+		// Put the mount back to a single key so afterEach's teardown matches.
+		mount(action, [key]);
+	});
+
 	test("releases the track observer once the last replay key disappears", async () => {
 		server.invocations.length = 0;
 		await action.onWillDisappear({ action: key, payload: { settings: {} } } as never);

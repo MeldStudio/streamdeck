@@ -46,6 +46,19 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 	protected abstract toggle(settings: T): void;
 
 	/**
+	 * Whether a press should go ahead even when {@link currentValue} is `null`.
+	 *
+	 * Normally an unreadable value means the item is absent — from a previous Meld
+	 * instance, say — and acting would send a command Meld silently drops while
+	 * painting a state it never confirms. An action overrides this when it can
+	 * identify a real target whose state it simply cannot read.
+	 * @param _settings The action's settings.
+	 */
+	protected actsWithUnknownState(_settings: T): boolean {
+		return false;
+	}
+
+	/**
 	 * Attempts to set the property directly (idempotent) to {@link desired}.
 	 * @returns `true` when a direct setter was available and used.
 	 */
@@ -67,7 +80,7 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 			return;
 		}
 		const current = this.currentValue(settings, this.session());
-		if (current === null) {
+		if (current === null && !this.actsWithUnknownState(settings)) {
 			return;
 		}
 
@@ -80,6 +93,13 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		const desired = mode === this.forceOnValue;
 		if (this.setDirect(settings, desired)) {
 			void this.setKeyState(ev.action, this.valueToKeyState(desired));
+			return;
+		}
+
+		if (current === null) {
+			// Actionable but unreadable: there is nothing to compare against, so
+			// forward the press and let Meld decide, as the pre-migration plugin did.
+			this.toggle(settings);
 			return;
 		}
 

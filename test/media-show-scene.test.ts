@@ -98,6 +98,63 @@ describe("Media and ShowScene", () => {
 		assert.ok(key.image?.includes("pause"), `a playing clip shows the pause icon, got ${key.image}`);
 	});
 
+	test("two toggle presses inside Meld's debounce alternate rather than repeat", async () => {
+		// `isPlaying` only refreshes when Meld republishes the session, behind its
+		// autosave debounce. A second press in that window must act on the pending
+		// intent, not re-read the pre-press snapshot and send the same command.
+		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slowPort = await slow.listen(0);
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowIds = build().ids;
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = slowConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			slowConnection.connect();
+			await ready;
+
+			const settings = { scene: slowIds.scene, layer: slowIds.clip, action: "toggle" };
+			const action = new Media(slowConnection);
+			const key = new FakeActionInstance("m", settings);
+			mount(action, [key]);
+			await action.onWillAppear(willAppear(key, settings) as never);
+			await sleep(60);
+			slow.invocations.length = 0;
+
+			await action.onKeyUp(keyEvent(key, settings) as never); // playing -> pause
+			await sleep(120);
+			await action.onKeyUp(keyEvent(key, settings) as never); // still inside the debounce
+			await sleep(120);
+
+			const members = slow.callsTo("callFunction").map((c) => c.args[1]);
+			assert.deepEqual(members, ["pause", "play"], "the second press must resume, not pause again");
+			assert.ok(key.image?.includes("pause"), "and the key shows the playing state it asked for");
+		} finally {
+			slowConnection.dispose();
+			await slow.close();
+		}
+	});
+
+	test("restart uses Meld's own skip-back, which respects a clip's loop point", async () => {
+		const settings = { scene: ids.scene, layer: ids.clip, action: "restart" };
+		const action = new Media(connection);
+		const key = new FakeActionInstance("m", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await sleep(60);
+
+		await action.onKeyUp(keyEvent(key, settings) as never);
+		await sleep(80);
+
+		// seekTo(0) would jump outside a trimmed clip's configured region.
+		assert.deepEqual(server.callsTo("callFunction").at(-1)?.args, [ids.clip, "skipBack"]);
+		assert.equal(server.callsTo("callFunctionWithArgs").length, 0);
+	});
+
 	test("the media key holds its icon through a connection blip", async () => {
 		// The clip never stopped playing; flipping to "play" would tell the user it
 		// did, and it would stay wrong for the whole reconnect.

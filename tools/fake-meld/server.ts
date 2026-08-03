@@ -124,6 +124,7 @@ export class FakeMeld {
 
 	#session: FakeSession;
 	#gains: Record<string, number>;
+	#effectOrder: Record<string, string[]>;
 	#streaming: boolean;
 	#recording: boolean;
 	/** trackId → the contexts observing it, mirroring StreamDeckMapper. */
@@ -141,6 +142,7 @@ export class FakeMeld {
 	constructor(scenario: Scenario, options: FakeMeldOptions = {}) {
 		this.#session = structuredClone(scenario.session);
 		this.#gains = { ...scenario.gains };
+		this.#effectOrder = structuredClone(scenario.effectOrder);
 		this.#streaming = scenario.isStreaming;
 		this.#recording = scenario.isRecording;
 		this.#options = options;
@@ -214,6 +216,7 @@ export class FakeMeld {
 	loadScenario(scenario: Scenario): void {
 		this.#session = structuredClone(scenario.session);
 		this.#gains = { ...scenario.gains };
+		this.#effectOrder = structuredClone(scenario.effectOrder);
 		this.#streaming = scenario.isStreaming;
 		this.#recording = scenario.isRecording;
 		this.#observers.clear();
@@ -440,23 +443,24 @@ export class FakeMeld {
 				if (!layer) {
 					return null;
 				}
-				const siblings = Object.entries(this.#session.items).filter(
-					([, item]) => item.type === "effect" && item.parent === (second as string),
-				);
-				let effect = siblings.find(([id]) => id === third)?.[1];
+				const direct = this.#session.items[third];
+				let effect = direct?.type === "effect" && direct.parent === (second as string) ? direct : undefined;
 				if (!effect) {
 					// Meld's fallback for ids saved before effects were addressable:
 					// exactly two dash-separated parts, the second used as an index into
-					// the layer from the *arguments* — the prefix is ignored entirely.
+					// `layer.effects` — the model order the user sees, NOT the order the
+					// snapshot happens to serialize in. The prefix is ignored entirely.
 					const parts = String(third).split("-");
 					if (parts.length !== 2) {
 						return null;
 					}
 					const index = Number.parseInt(parts[1], 10);
-					if (!Number.isInteger(index) || index < 0 || index >= siblings.length) {
+					const order = this.#effectOrder[second as string] ?? [];
+					if (!Number.isInteger(index) || index < 0 || index >= order.length) {
 						return null;
 					}
-					effect = siblings[index][1];
+					const resolved = this.#session.items[order[index]];
+					effect = resolved?.type === "effect" ? resolved : undefined;
 				}
 				if (effect?.type === "effect") {
 					effect.enabled = !effect.enabled;
@@ -505,7 +509,7 @@ export class FakeMeld {
 					layer.isPlaying = true;
 				} else if (member === "pause") {
 					layer.isPlaying = false;
-				} else if (member !== "seekTo") {
+				} else if (member !== "seekTo" && member !== "skipBack") {
 					return null;
 				}
 				this.#publishSession();

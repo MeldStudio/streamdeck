@@ -172,6 +172,59 @@ describe("VolumeStepper", () => {
 		}
 	});
 
+	test("a lagging echo is still rejected at the smallest usable step", async () => {
+		// The echo guard compares gains with an absolute epsilon, so its correctness
+		// depends on staying below the smallest per-tick delta. Near the -60 dB floor
+		// with a 0.1 dB step that delta is ~1e-5 — five orders of magnitude finer
+		// than a mid-scale 1 dB tick — and the step field accepts any number, so this
+		// is the regime that actually bounds the constant.
+		const tiny = new FakeMeld(audioScenario(0.001).scenario, { echoDelayMs: 400 });
+		const tinyPort = await tiny.listen(0);
+		const tinyConnection = new MeldConnection({ port: tinyPort, reconnectMinMs: 100 });
+		const tinyTrack = audioScenario(0.001).trackId;
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = tinyConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			tinyConnection.connect();
+			await ready;
+
+			const settings = { track: tinyTrack, stepsize: "0.1" };
+			const tinyAction = new VolumeStepper(tinyConnection);
+			const tinyDial = new FakeActionInstance<Settings>("tiny-dial", settings);
+			mount(tinyAction, [tinyDial]);
+			await tinyAction.onWillAppear(willAppear(tinyDial, settings, "Encoder") as never);
+			await sleep(500);
+
+			tinyAction.onDialRotate(dialRotate(tinyDial, settings, 1) as never);
+			await sleep(200);
+			tinyAction.onDialRotate(dialRotate(tinyDial, settings, 1) as never);
+			await sleep(40);
+
+			const sends = tiny.callsTo("setGain").map((c) => c.args[1] as number);
+			assert.equal(sends.length, 2);
+			assert.ok(sends[1] > sends[0], "the second tick builds on the first");
+
+			// Tick 1's echo lands here, carrying a value ~1e-5 away from tick 2's.
+			await sleep(250);
+			tinyAction.onDialRotate(dialRotate(tinyDial, settings, 1) as never);
+			await sleep(60);
+
+			const third = tiny.callsTo("setGain").at(-1)?.args[1] as number;
+			assert.ok(
+				third > sends[1],
+				`the third tick must exceed ${sends[1]}, got ${third} — the lagging echo was mistaken for confirmation`,
+			);
+		} finally {
+			tinyConnection.dispose();
+			await tiny.close();
+		}
+	});
+
 	test("a matching echo confirms and releases the optimistic value", async () => {
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
 		await sleep(80);

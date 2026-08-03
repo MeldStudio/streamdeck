@@ -76,6 +76,13 @@ export type Scenario = {
 	gains: Record<string, number>;
 	isStreaming: boolean;
 	isRecording: boolean;
+	/**
+	 * Each layer's effects in Meld's own model order — the order the user sees,
+	 * and the one a legacy `<layerId>-<index>` id indexes into. It is deliberately
+	 * separate from the snapshot, which Qt serializes sorted by id, so the two
+	 * orders can disagree here exactly as they do in production.
+	 */
+	effectOrder: Record<string, string[]>;
 };
 
 /**
@@ -112,6 +119,7 @@ export function legacyEffectId(layerId: string, index: number): string {
 export class SessionBuilder {
 	readonly #items: Record<string, FakeItem> = {};
 	readonly #gains: Record<string, number> = {};
+	readonly #effectOrder: Record<string, string[]> = {};
 	readonly #namespace: string;
 	// Meld walks the horizontal and vertical scene models in separate loops, each
 	// numbering from 0, so a vertical twin can share an index with a horizontal
@@ -218,6 +226,8 @@ export class SessionBuilder {
 	effect(parent: string, name: string, options: { enabled?: boolean } = {}): string {
 		const id = this.#id(`effect:${parent}:${name}`);
 		this.#items[id] = { type: "effect", name, parent, enabled: options.enabled ?? true };
+		// Creation order is the model order Meld indexes legacy ids against.
+		(this.#effectOrder[parent] ??= []).push(id);
 		return id;
 	}
 
@@ -245,13 +255,23 @@ export class SessionBuilder {
 
 	/** Produces the finished scenario. */
 	build(name: string, description: string, flags: { streaming?: boolean; recording?: boolean } = {}): Scenario {
+		// Meld builds `items` as a QVariantMap, which Qt serializes with the keys in
+		// lexicographic order of the item id — so the wire order is unrelated to
+		// creation order, and types are interleaved. Anything that walks
+		// `Object.keys(items)` sees that order in production, so the fake must serve
+		// it too; insertion order would flatter code that depends on grouping.
+		const sorted: Record<string, FakeItem> = {};
+		for (const id of Object.keys(this.#items).sort()) {
+			sorted[id] = this.#items[id];
+		}
 		return {
 			name,
 			description,
-			session: { items: structuredClone(this.#items) },
+			session: { items: structuredClone(sorted) },
 			gains: { ...this.#gains },
 			isStreaming: flags.streaming ?? false,
 			isRecording: flags.recording ?? false,
+			effectOrder: structuredClone(this.#effectOrder),
 		};
 	}
 }
