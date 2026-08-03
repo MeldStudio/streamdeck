@@ -32,8 +32,8 @@ export class ShowScene extends MeldAction<ShowSceneSettings> {
 	 * expires unconfirmed (the request never took effect), repaint from
 	 * authoritative state so the key doesn't stay lit for a scene that isn't live.
 	 */
-	readonly #requested = new OptimisticStore<string>(SCENE_CONFIRM_TTL_MS, () =>
-		void this.renderAll("sessionChanged"),
+	readonly #requested = new OptimisticStore<string>(SCENE_CONFIRM_TTL_MS, (context) =>
+		void this.#repaint(context),
 	);
 
 	/** @inheritdoc */
@@ -50,6 +50,26 @@ export class ShowScene extends MeldAction<ShowSceneSettings> {
 		this.#requested.set(ev.action.id, scene);
 		void this.setKeyState(ev.action, 1);
 		this.meld.meld?.showScene?.(scene);
+	}
+
+	/**
+	 * Repaints one context from authoritative state after its own request expired.
+	 *
+	 * Only that context: `renderAll` would clear every other key's still-pending
+	 * request too, so one key's expiry would darken another key's in-flight press.
+	 * @param context The context whose request expired.
+	 */
+	async #repaint(context: string): Promise<void> {
+		for (const action of this.actions) {
+			if (action.id !== context) {
+				continue;
+			}
+			const settings = this.settingsFor(action.id);
+			if (settings) {
+				await this.render({ action, settings, session: this.session(), reason: "sessionChanged" });
+			}
+			return;
+		}
 	}
 
 	/** @inheritdoc */

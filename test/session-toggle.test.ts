@@ -295,7 +295,14 @@ describe("session toggles", () => {
 		assert.equal(key.state, 0, "the layer starts hidden");
 
 		await press(action, key, settings);
-		await sleep(200);
+		// Meld's autosave is retriggerable, so ordinary concurrent activity keeps
+		// pushing the confirmation out well past a single debounce. That is the
+		// case the TTL exists for, and waiting out one undisturbed 600ms window
+		// would let any TTL above it pass.
+		for (let i = 0; i < 6; i++) {
+			server.setMuted(ids.track, i % 2 === 0);
+			await sleep(150);
+		}
 		await press(action, key, settings);
 		await sleep(900);
 

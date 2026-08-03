@@ -140,6 +140,9 @@ export class FakeMeld {
 	/** The pending debounced session republish, if any. */
 	#sessionTimer?: ReturnType<typeof setTimeout>;
 
+	/** Test-set override of the republish delay. */
+	#debounceOverride?: number;
+
 	/** Signal indices each client subscribed to via `connectToSignal`. */
 	readonly #subscriptions = new WeakMap<ServerSocket, Set<number>>();
 
@@ -234,6 +237,14 @@ export class FakeMeld {
 		this.#publishSession();
 		this.#publish(PROP_STREAMING, SIG_STREAMING_CHANGED, this.#streaming);
 		this.#publish(PROP_RECORDING, SIG_RECORDING_CHANGED, this.#recording);
+	}
+
+	/**
+	 * Overrides the session republish delay for the rest of the run.
+	 * @param delayMs Milliseconds, or `undefined` to restore the configured value.
+	 */
+	setSessionDebounce(delayMs: number | undefined): void {
+		this.#debounceOverride = delayMs;
 	}
 
 	/** Every invocation of a given method, in order. */
@@ -603,7 +614,7 @@ export class FakeMeld {
 	 * snapshot, delayed until the burst stops.
 	 */
 	#publishSession(): void {
-		const delay = this.#options.sessionDebounceMs ?? MELD_SESSION_DEBOUNCE_MS;
+		const delay = this.#debounceOverride ?? this.#options.sessionDebounceMs ?? MELD_SESSION_DEBOUNCE_MS;
 		if (delay <= 0) {
 			this.#publish(PROP_SESSION, SIG_SESSION_CHANGED, this.#session);
 			return;
@@ -682,17 +693,33 @@ export class FakeMeld {
 		this.#send(socket, message);
 	}
 
-	/** Delivers whatever was withheld while a client was busy. */
+	/**
+	 * Delivers whatever was withheld while a client was busy.
+	 *
+	 * Qt merges rather than drops: `sendPendingPropertyUpdates` folds every
+	 * pending change for an object into one frame carrying all changed properties
+	 * and all their notify signals. Sending only the newest would lose state the
+	 * client never sees again — a streaming flag stuck false, say — and would
+	 * never produce the multi-property frame the client has to decode.
+	 * @param socket The client to flush to.
+	 */
 	#flush(socket: ServerSocket): void {
 		const queue = this.#withheld.get(socket);
 		if (!queue?.length) {
 			return;
 		}
-		// Qt coalesces: the client sees the newest state, not every intermediate.
-		const latest = queue.at(-1);
+		const properties: Record<number, unknown> = {};
+		const signals: Record<number, unknown[]> = {};
+		for (const frame of queue) {
+			for (const entry of (frame as { data: { properties: Record<number, unknown>; signals: Record<number, unknown[]> }[] })
+				.data) {
+				Object.assign(properties, entry.properties);
+				Object.assign(signals, entry.signals);
+			}
+		}
 		queue.length = 0;
 		this.#idle.delete(socket);
-		this.#send(socket, latest);
+		this.#send(socket, { type: Msg.propertyUpdate, data: [{ object: "meld", signals, properties }] });
 	}
 
 	/**

@@ -179,6 +179,35 @@ describe("MeldConnection", () => {
 		);
 	});
 
+	test("delivers every property update queued while the client was busy", async () => {
+		// Qt withholds property updates until the client acknowledges the last one,
+		// then merges everything pending into a single frame. A peer that instead
+		// forwarded only the newest would silently strand state — a streaming flag
+		// stuck false with no further event to correct it.
+		const streaming: boolean[] = [];
+		const recording: boolean[] = [];
+		const offStreaming = connection.on("streamingChanged", (value) => streaming.push(value));
+		const offRecording = connection.on("recordingChanged", (value) => recording.push(value));
+
+		// Three publishes in one turn (no debounce, so the session goes out too):
+		// the first is sent, the other two are withheld until the client acks.
+		const builder = new SessionBuilder("busy");
+		builder.scene("Scene busy", { current: true });
+		const busyTrack = builder.track("Track busy", { gain: 0.5 });
+		server.setSessionDebounce(0);
+		server.loadScenario(builder.build("busy", "busy", { streaming: true, recording: true }));
+		await sleep(400);
+		server.setSessionDebounce(undefined);
+
+		offStreaming();
+		offRecording();
+		assert.ok(streaming.includes(true), `streamingChanged must not be dropped; saw ${JSON.stringify(streaming)}`);
+		assert.ok(recording.includes(true), `recordingChanged must not be dropped; saw ${JSON.stringify(recording)}`);
+		assert.equal(connection.meld?.isStreaming, true);
+		assert.equal(connection.meld?.isRecording, true);
+		assert.ok(connection.session?.items[busyTrack], "and the session itself still arrived");
+	});
+
 	test("delivers recording updates from the current instance", async () => {
 		const recordings: boolean[] = [];
 		const off = connection.on("recordingChanged", (recording) => recordings.push(recording));

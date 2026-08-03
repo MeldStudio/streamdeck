@@ -21,9 +21,10 @@ function build(): { scenario: Scenario; ids: Record<string, string> } {
 	const b = new SessionBuilder("ms");
 	const scene = b.scene("Live", { current: true });
 	const other = b.scene("Break");
+	const third = b.scene("Interlude");
 	const clip = b.layer(scene, "Clip", { mediaSource: "clip.mp4", isPlaying: true });
 	const track = b.track("Microphone", { gain: 0.6 });
-	return { scenario: b.build("ms", "media"), ids: { scene, other, clip, track } };
+	return { scenario: b.build("ms", "media"), ids: { scene, other, third, clip, track } };
 }
 
 describe("Media and ShowScene", () => {
@@ -284,6 +285,66 @@ describe("Media and ShowScene", () => {
 				(slow.session.items[slowIds.other] as { current: boolean }).current,
 				true,
 				"and Meld did make the scene current",
+			);
+		} finally {
+			slowConnection.dispose();
+			await slow.close();
+		}
+	});
+
+	test("one show-scene key's expiry does not darken another key's pending press", async () => {
+		// Each key waits on its own confirmation. If an expiry repainted every key,
+		// the first key's timeout would clear a second key's still-valid request and
+		// repaint it from the pre-press snapshot.
+		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slowPort = await slow.listen(0);
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowIds = build().ids;
+
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = slowConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			slowConnection.connect();
+			await ready;
+
+			const action = new ShowScene(slowConnection);
+			const first = new FakeActionInstance("s1", { scene: slowIds.other });
+			const second = new FakeActionInstance("s2", { scene: slowIds.third });
+			mount(action, [first, second]);
+			await action.onWillAppear(willAppear(first, { scene: slowIds.other }) as never);
+			await action.onWillAppear(willAppear(second, { scene: slowIds.third }) as never);
+			await sleep(60);
+
+			// Keep Meld continuously busy for the whole window: the autosave is
+			// retriggerable, so no snapshot lands and the only thing that can repaint
+			// either key is an optimistic expiry.
+			let busy = true;
+			const churn = (async (): Promise<void> => {
+				for (let i = 0; busy && i < 40; i++) {
+					slow.setMuted(slowIds.track, i % 2 === 0);
+					await sleep(120);
+				}
+			})();
+
+			await press(action, first, { scene: slowIds.other });
+			await sleep(900);
+
+			second.reset();
+			await press(action, second, { scene: slowIds.third });
+			assert.equal(second.state, 1, "the second press lights its own key");
+
+			// Past the FIRST key's TTL, still inside the second's.
+			await sleep(2_400);
+			busy = false;
+			await churn;
+
+			assert.ok(
+				!second.states.includes(0),
+				`the second key must not be darkened by the first key's expiry; painted ${JSON.stringify(second.states)}`,
 			);
 		} finally {
 			slowConnection.dispose();
