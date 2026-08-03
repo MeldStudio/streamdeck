@@ -14,7 +14,7 @@ import { ShowScene } from "../src/actions/show-scene.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
 import { type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
-import { FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { FakeActionInstance, keyEvent, press, mount, willAppear } from "./helpers/fake-stream-deck.ts";
 
 /** A scene with a playing media layer. */
 function build(): { scenario: Scenario; ids: Record<string, string> } {
@@ -82,7 +82,7 @@ describe("Media and ShowScene", () => {
 		assert.ok(key.image?.includes("pause"), "the clip starts playing");
 
 		// Toggle: playing -> paused.
-		await action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(150);
 		assert.equal(
 			(server.session.items[ids.clip] as { isPlaying: boolean }).isPlaying,
@@ -92,7 +92,7 @@ describe("Media and ShowScene", () => {
 		assert.ok(key.image?.includes("play"), `a paused clip shows the play icon, got ${key.image}`);
 
 		// And back again.
-		await action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(150);
 		assert.equal((server.session.items[ids.clip] as { isPlaying: boolean }).isPlaying, true);
 		assert.ok(key.image?.includes("pause"), `a playing clip shows the pause icon, got ${key.image}`);
@@ -125,9 +125,9 @@ describe("Media and ShowScene", () => {
 			await sleep(60);
 			slow.invocations.length = 0;
 
-			await action.onKeyUp(keyEvent(key, settings) as never); // playing -> pause
+			await press(action, key, settings); // playing -> pause
 			await sleep(120);
-			await action.onKeyUp(keyEvent(key, settings) as never); // still inside the debounce
+			await press(action, key, settings); // still inside the debounce
 			await sleep(120);
 
 			const members = slow.callsTo("callFunction").map((c) => c.args[1]);
@@ -147,7 +147,7 @@ describe("Media and ShowScene", () => {
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(60);
 
-		await action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(80);
 
 		// seekTo(0) would jump outside a trimmed clip's configured region.
@@ -168,7 +168,7 @@ describe("Media and ShowScene", () => {
 		await sleep(60);
 		assert.ok(key.image?.includes("pause"), "the key must still reflect the playing clip");
 
-		await action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(150);
 		assert.deepEqual(server.callsTo("callFunction").at(-1)?.args, [ids.clip, "pause"]);
 	});
@@ -217,7 +217,7 @@ describe("Media and ShowScene", () => {
 		await sleep(60);
 		assert.equal(key.state, 0, "a scene that is not current starts unlit");
 
-		action.onKeyUp(keyEvent(key, { scene: ids.other }) as never);
+		await press(action, key, { scene: ids.other });
 		await sleep(120);
 
 		assert.equal(server.callsTo("showScene").length, 1);
@@ -252,7 +252,7 @@ describe("Media and ShowScene", () => {
 			await sleep(60);
 			key.reset();
 
-			action.onKeyUp(keyEvent(key, { scene: slowIds.other }) as never);
+			await press(action, key, { scene: slowIds.other });
 			await sleep(100);
 			assert.equal(key.state, 1, "the press lights the key immediately");
 
@@ -301,7 +301,7 @@ describe("Media and ShowScene", () => {
 		await sleep(60);
 		key.reset();
 
-		action.onKeyUp(keyEvent(key, { scene: "GONESCENE" }) as never);
+		await press(action, key, { scene: "GONESCENE" });
 		await sleep(120);
 
 		assert.equal(server.callsTo("showScene").length, 0, "no command should reach Meld");

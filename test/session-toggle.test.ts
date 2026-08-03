@@ -17,7 +17,7 @@ import { ToggleMute } from "../src/actions/toggle-mute.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
 import { legacyEffectId, type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
-import { FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { FakeActionInstance, keyEvent, press, mount, willAppear } from "./helpers/fake-stream-deck.ts";
 
 /** Two scenes, each with a layer; the first layer carries an effect. */
 function build(namespace: string): {
@@ -93,7 +93,7 @@ describe("session toggles", () => {
 		await action.onWillAppear(willAppear(key, { scene: ids.sceneA, layer: ids.layerA }) as never);
 		await sleep(40);
 
-		action.onKeyUp(keyEvent(key, { scene: ids.sceneA, layer: ids.layerA }) as never);
+		await press(action, key, { scene: ids.sceneA, layer: ids.layerA });
 		await sleep(120);
 
 		const calls = server.callsTo("toggleLayer");
@@ -115,7 +115,7 @@ describe("session toggles", () => {
 		await sleep(40);
 		assert.equal(key.state, 1, "the key must still track the intended layer, not go dark");
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(120);
 
 		const calls = server.callsTo("toggleLayer");
@@ -136,7 +136,7 @@ describe("session toggles", () => {
 		await sleep(40);
 		assert.equal(key.state, 1, "an enabled effect shows state 1 despite the stale layer");
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(120);
 
 		const calls = server.callsTo("toggleEffect");
@@ -160,7 +160,7 @@ describe("session toggles", () => {
 		await sleep(40);
 		key.reset();
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(120);
 
 		assert.equal(server.callsTo("toggleLayer").length, 0, "no command should reach Meld");
@@ -179,7 +179,7 @@ describe("session toggles", () => {
 		await sleep(40);
 		assert.equal(key.state, 1, "the layer starts visible");
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(120);
 
 		assert.equal(server.callsTo("toggleLayer").length, 0, "forcing the state it is already in must not toggle");
@@ -201,7 +201,7 @@ describe("session toggles", () => {
 		await sleep(40);
 		assert.equal(key.state, 0, "the layer starts hidden");
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(120);
 
 		assert.equal(server.callsTo("toggleLayer").length, 1, "a differing state must toggle once");
@@ -218,7 +218,7 @@ describe("session toggles", () => {
 		await sleep(40);
 
 		// Forcing mute on an unmuted track sets it directly.
-		action.onKeyUp(keyEvent(key, present) as never);
+		await press(action, key, present);
 		await sleep(120);
 		const direct = server.callsTo("setMuted").concat(server.callsTo("setProperty"));
 		assert.ok(direct.length >= 1, "force mode should use the direct setter");
@@ -260,7 +260,7 @@ describe("session toggles", () => {
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(40);
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(120);
 
 		const calls = server.callsTo("toggleEffect");
@@ -294,9 +294,9 @@ describe("session toggles", () => {
 		await sleep(60);
 		assert.equal(key.state, 0, "the layer starts hidden");
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(200);
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(900);
 
 		assert.equal(
@@ -318,7 +318,7 @@ describe("session toggles", () => {
 		await sleep(60);
 		assert.equal(key.state, 1, "the layer starts visible");
 
-		action.onKeyUp(keyEvent(key, settings) as never);
+		await press(action, key, settings);
 		await sleep(50); // well inside the debounce
 		assert.equal(key.state, 0, "the key must follow the press without waiting for Meld");
 	});
@@ -330,7 +330,7 @@ describe("session toggles", () => {
 		await action.onWillAppear(willAppear(key, {}) as never);
 		await sleep(40);
 
-		action.onKeyUp(keyEvent(key, {}) as never);
+		await press(action, key, {});
 		await sleep(120);
 		assert.deepEqual(key.states, []);
 		assert.equal(server.callsTo("toggleLayer").length, 0);

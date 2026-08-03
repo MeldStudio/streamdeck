@@ -196,6 +196,25 @@ export function keyEvent<T extends JsonObject>(
 }
 
 /**
+ * Presses a key: `keyDown` then `keyUp`, as the app always delivers them.
+ *
+ * Calling `onKeyUp` alone skips the dedupe-cache invalidation that every real
+ * press performs, so a key could appear to repaint correctly in a test while
+ * the shipped plugin suppressed the message.
+ * @param action The action under test.
+ * @param instance The pressed instance.
+ * @param settings Settings the SDK reports with the event.
+ */
+export async function press<T extends JsonObject>(
+	action: MeldAction<T>,
+	instance: FakeActionInstance<T>,
+	settings: T,
+): Promise<void> {
+	action.onKeyDown(keyEvent(instance, settings) as never);
+	await action.onKeyUp?.(keyEvent(instance, settings) as never);
+}
+
+/**
  * Builds a dial-rotate event for a fake instance.
  * @param instance The rotated instance.
  * @param settings Settings the SDK reports with the event.

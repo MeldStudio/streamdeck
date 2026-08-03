@@ -140,6 +140,15 @@ export class FakeMeld {
 	/** The pending debounced session republish, if any. */
 	#sessionTimer?: ReturnType<typeof setTimeout>;
 
+	/** Signal indices each client subscribed to via `connectToSignal`. */
+	readonly #subscriptions = new WeakMap<ServerSocket, Set<number>>();
+
+	/** Clients that have acknowledged the last property update. */
+	readonly #idle = new WeakSet<ServerSocket>();
+
+	/** Property updates withheld until a client goes idle again. */
+	readonly #withheld = new WeakMap<ServerSocket, unknown[]>();
+
 	constructor(scenario: Scenario, options: FakeMeldOptions = {}) {
 		this.#session = structuredClone(scenario.session);
 		this.#gains = { ...scenario.gains };
@@ -185,6 +194,7 @@ export class FakeMeld {
 			wss.on("connection", (socket) => {
 				this.#accepted++;
 				this.#sockets.add(socket);
+				this.#subscriptions.set(socket, new Set());
 				socket.on("close", () => this.#sockets.delete(socket));
 				socket.on("message", (raw) => this.#onMessage(socket, String(raw)));
 			});
@@ -277,7 +287,7 @@ export class FakeMeld {
 			object: "meld",
 			signal: SIG_GAIN_UPDATED,
 			args: [trackId, gain, muted],
-		});
+		}, SIG_GAIN_UPDATED);
 	}
 
 	/** Mutes or unmutes a track from Meld's side. */
@@ -337,8 +347,20 @@ export class FakeMeld {
 				// The plugin never writes properties directly, but honour it anyway.
 				return;
 			case Msg.connectToSignal:
+				// Qt only forwards a pure signal to clients that asked for it, so a
+				// client that never subscribes must receive nothing.
+				this.#subscriptions.get(socket)?.add(Number(message.signal));
+				return;
 			case Msg.disconnectFromSignal:
+				this.#subscriptions.get(socket)?.delete(Number(message.signal));
+				return;
 			case Msg.idle:
+				// Qt withholds property updates until the client says it is idle, and
+				// each batch un-arms the flag again. Modelling it means a client that
+				// stopped acknowledging would visibly stop receiving updates.
+				this.#idle.add(socket);
+				this.#flush(socket);
+				return;
 			case Msg.debug:
 				return;
 			default:
@@ -565,12 +587,12 @@ export class FakeMeld {
 		};
 		const delay = this.#options.echoDelayMs ?? 0;
 		if (delay <= 0) {
-			this.#broadcast(frame);
+			this.#broadcast(frame, SIG_GAIN_UPDATED);
 			return;
 		}
 		const timer = setTimeout(() => {
 			this.#pendingEchoes.delete(timer);
-			this.#broadcast(frame);
+			this.#broadcast(frame, SIG_GAIN_UPDATED);
 		}, delay);
 		this.#pendingEchoes.add(timer);
 	}
@@ -644,9 +666,52 @@ export class FakeMeld {
 		}
 	}
 
-	#broadcast(message: unknown): void {
+	/**
+	 * Sends a property update, or withholds it until the client is idle again.
+	 * @param socket The client.
+	 * @param message The property-update frame.
+	 */
+	#sendPropertyUpdate(socket: ServerSocket, message: unknown): void {
+		if (!this.#idle.has(socket)) {
+			const queue = this.#withheld.get(socket) ?? [];
+			queue.push(message);
+			this.#withheld.set(socket, queue);
+			return;
+		}
+		this.#idle.delete(socket);
+		this.#send(socket, message);
+	}
+
+	/** Delivers whatever was withheld while a client was busy. */
+	#flush(socket: ServerSocket): void {
+		const queue = this.#withheld.get(socket);
+		if (!queue?.length) {
+			return;
+		}
+		// Qt coalesces: the client sees the newest state, not every intermediate.
+		const latest = queue.at(-1);
+		queue.length = 0;
+		this.#idle.delete(socket);
+		this.#send(socket, latest);
+	}
+
+	/**
+	 * Broadcasts a frame, honouring Qt's delivery rules: property updates wait for
+	 * an idle client, and a pure signal only reaches clients that subscribed.
+	 * @param message The frame to send.
+	 * @param signal When set, the signal index the client must have subscribed to.
+	 */
+	#broadcast(message: unknown, signal?: number): void {
+		const isPropertyUpdate = (message as { type?: number }).type === Msg.propertyUpdate;
 		for (const socket of this.#sockets) {
-			this.#send(socket, message);
+			if (signal !== undefined && !this.#subscriptions.get(socket)?.has(signal)) {
+				continue;
+			}
+			if (isPropertyUpdate) {
+				this.#sendPropertyUpdate(socket, message);
+			} else {
+				this.#send(socket, message);
+			}
 		}
 	}
 }

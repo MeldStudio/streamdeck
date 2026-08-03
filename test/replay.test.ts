@@ -13,7 +13,7 @@ import { Replay } from "../src/actions/replay.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
 import { FakeMeld } from "../tools/fake-meld/server.ts";
 import { SessionBuilder } from "../tools/fake-meld/session.ts";
-import { disappear, FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { disappear, FakeActionInstance, keyEvent, press, mount, willAppear } from "./helpers/fake-stream-deck.ts";
 
 type Settings = { action?: string };
 
@@ -101,7 +101,7 @@ describe("Replay", () => {
 
 	test("volume up raises the gain rather than slamming it to silence", async () => {
 		const before = server.gainOf(trackId) as number;
-		await action.onKeyUp(keyEvent(key, { action: "volume_up" }) as never);
+		await press(action, key, { action: "volume_up" });
 		await sleep(80);
 
 		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
@@ -113,7 +113,7 @@ describe("Replay", () => {
 
 	test("volume down lowers the gain by a step", async () => {
 		const before = server.gainOf(trackId) as number;
-		await action.onKeyUp(keyEvent(key, { action: "volume_down" }) as never);
+		await press(action, key, { action: "volume_down" });
 		await sleep(80);
 
 		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
@@ -127,7 +127,7 @@ describe("Replay", () => {
 		server.setGain(trackId, 0.2);
 		await sleep(80);
 
-		await action.onKeyUp(keyEvent(key, { action: "volume_up" }) as never);
+		await press(action, key, { action: "volume_up" });
 		await sleep(80);
 
 		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
@@ -135,11 +135,11 @@ describe("Replay", () => {
 	});
 
 	test("mute and cue presses target the replay track", async () => {
-		await action.onKeyUp(keyEvent(key, { action: "mute" }) as never);
+		await press(action, key, { action: "mute" });
 		await sleep(60);
 		assert.deepEqual(server.callsTo("setMuted").at(-1)?.args, [trackId, true]);
 
-		await action.onKeyUp(keyEvent(key, { action: "cue" }) as never);
+		await press(action, key, { action: "cue" });
 		await sleep(60);
 		assert.deepEqual(server.callsTo("setProperty").at(-1)?.args, [trackId, "monitoring", true]);
 	});
