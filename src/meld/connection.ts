@@ -257,7 +257,7 @@ export class MeldConnection {
 		// throws (e.g. a Meld build missing a signal), the dispatch guard closes the
 		// socket and the reconnect path must not find a half-initialized "ready"
 		// connection.
-		meld.sessionChanged.connect(() => {});
+		meld.sessionChanged.connect(() => this.#emitter.emit("sessionChanged", meld.session));
 		meld.isStreamingChanged.connect(() => this.#emitter.emit("streamingChanged", !!meld.isStreaming));
 		meld.isRecordingChanged.connect(() => this.#emitter.emit("recordingChanged", !!meld.isRecording));
 		// Optional: part of the track-observer feature — a build without it must

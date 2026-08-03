@@ -86,6 +86,13 @@ export type FakeMeldOptions = {
 	stallHandshake?: boolean;
 	/** Drop the track-observer API, as a build predating it would. */
 	omitObserverApi?: boolean;
+	/**
+	 * Delay every `gainUpdated` by this many milliseconds. Real Meld's echo of a
+	 * `setGain` is not instant, and a slow echo is what lets an update for an
+	 * older write arrive after a newer one — the timing behind the dial-desync
+	 * bug class. Zero (the default) echoes synchronously.
+	 */
+	echoDelayMs?: number;
 	/** Called for every method invocation, for logging. */
 	onInvoke?: (invocation: Invocation) => void;
 };
@@ -107,6 +114,9 @@ export class FakeMeld {
 
 	/** Cumulative accepted sockets, including ones since closed. */
 	#accepted = 0;
+
+	/** In-flight delayed `gainUpdated` timers, cancelled on close. */
+	readonly #pendingEchoes = new Set<ReturnType<typeof setTimeout>>();
 
 	constructor(scenario: Scenario, options: FakeMeldOptions = {}) {
 		this.#session = structuredClone(scenario.session);
@@ -160,6 +170,10 @@ export class FakeMeld {
 
 	/** Drops every client and stops listening, as an abrupt Meld exit would. */
 	async close(): Promise<void> {
+		for (const timer of this.#pendingEchoes) {
+			clearTimeout(timer);
+		}
+		this.#pendingEchoes.clear();
 		for (const socket of this.#sockets) {
 			socket.terminate();
 		}
@@ -420,12 +434,24 @@ export class FakeMeld {
 			return;
 		}
 		const track = this.#trackOrNull(trackId);
-		this.#broadcast({
+		// Capture the values now: with a delay, later writes must not rewrite the
+		// payload of an update that was already on its way.
+		const frame = {
 			type: Msg.signal,
 			object: "meld",
 			signal: SIG_GAIN_UPDATED,
 			args: [trackId, this.#gains[trackId] ?? 0, track?.muted ?? false],
-		});
+		};
+		const delay = this.#options.echoDelayMs ?? 0;
+		if (delay <= 0) {
+			this.#broadcast(frame);
+			return;
+		}
+		const timer = setTimeout(() => {
+			this.#pendingEchoes.delete(timer);
+			this.#broadcast(frame);
+		}, delay);
+		this.#pendingEchoes.add(timer);
 	}
 
 	#publishSession(): void {

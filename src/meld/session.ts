@@ -37,17 +37,24 @@ export class MeldSession {
 		return this.#session?.items ?? {};
 	}
 
-	/** Returns `true` when an item with the given id exists in the snapshot. */
+	/**
+	 * Returns `true` when an item with the given id exists in the snapshot.
+	 *
+	 * Ids are opaque strings that ultimately come from stored settings, so every
+	 * lookup here is an own-property check: `in` (and plain indexing) would let
+	 * `constructor` or `toString` resolve through `Object.prototype` and conjure
+	 * an item that does not exist.
+	 */
 	has(id: string | undefined): boolean {
-		return !!id && id in this.items;
+		return !!id && Object.hasOwn(this.items, id);
 	}
 
 	/** Returns the item with the given id, paired with its id, or `undefined`. */
 	get(id: string | undefined): IdentifiedItem | undefined {
-		if (!id) {
+		if (!this.has(id)) {
 			return undefined;
 		}
-		const item = this.items[id];
+		const item = this.items[id as string];
 		return item ? ({ ...item, id } as IdentifiedItem) : undefined;
 	}
 
@@ -125,13 +132,13 @@ export class MeldSession {
 		id: string | undefined,
 		type: T,
 	): IdentifiedItem<Extract<SessionItem, { type: T }>> | undefined {
-		if (!id) {
+		if (!this.has(id)) {
 			return undefined;
 		}
-		const item = this.items[id];
+		const item = this.items[id as string];
 		if (!item || item.type !== type) {
 			return undefined;
 		}
-		return { ...(item as Extract<SessionItem, { type: T }>), id };
+		return { ...(item as Extract<SessionItem, { type: T }>), id: id as string };
 	}
 }

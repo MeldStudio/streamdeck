@@ -3,7 +3,7 @@
 
 import { action, type KeyUpEvent } from "@elgato/streamdeck";
 
-import type { MeldSession, TrackItem } from "../meld/index.js";
+import type { MeldConnection, MeldSession, TrackItem } from "../meld/index.js";
 import { MeldAction, type RenderArgs } from "./base.js";
 import { toDb, toGain } from "./gain.js";
 
@@ -36,8 +36,8 @@ export class Replay extends MeldAction<ReplaySettings> {
 	/** Authoritative gain per track id, from `gainUpdated`. */
 	readonly #trackGain = new Map<string, number>();
 
-	constructor() {
-		super();
+	constructor(connection?: MeldConnection) {
+		super(connection);
 		this.meld.on("gainChanged", ({ trackId, gain, muted }) => {
 			this.#trackGain.set(trackId, gain);
 			if (this.#replay.trackId === trackId) {

@@ -9,7 +9,7 @@ import streamDeck, {
 	type TouchTapEvent,
 } from "@elgato/streamdeck";
 
-import type { IdentifiedItem, TrackItem } from "../meld/index.js";
+import type { IdentifiedItem, MeldConnection, TrackItem } from "../meld/index.js";
 import { MeldAction, type RenderArgs } from "./base.js";
 import { toDb, toGain } from "./gain.js";
 import { OptimisticStore } from "./optimistic.js";
@@ -67,8 +67,8 @@ export class VolumeStepper extends MeldAction<VolumeStepperSettings> {
 	/** Latest authoritative gain/mute per track id, from `gainUpdated`. */
 	readonly #trackGain = new Map<string, { gain: number; muted: boolean }>();
 
-	constructor() {
-		super();
+	constructor(connection?: MeldConnection) {
+		super(connection);
 		// The observer cache and any unconfirmed optimistic values are only valid
 		// for the connection they were observed on: Meld emits gainUpdated solely on
 		// change, so a value cached before a disconnect would otherwise mask the

@@ -12,7 +12,7 @@ import streamDeck, {
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
-import { meld, MeldSession } from "../meld/index.js";
+import { meld, type MeldConnection, MeldSession } from "../meld/index.js";
 
 /** Why {@link MeldAction.render} was invoked. */
 export type RenderReason =
@@ -54,7 +54,7 @@ export type RenderArgs<T extends JsonObject> = {
  */
 export abstract class MeldAction<T extends JsonObject = JsonObject> extends SingletonAction<T> {
 	/** The shared, process-wide Meld connection. */
-	protected readonly meld = meld;
+	protected readonly meld: MeldConnection;
 
 	/** Latest known settings per visible context id. */
 	readonly #settings = new Map<string, T>();
@@ -63,8 +63,13 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 	readonly #lastState = new Map<string, number>();
 	readonly #lastImage = new Map<string, string | undefined>();
 
-	constructor() {
+	/**
+	 * @param connection Meld connection to bind to. Defaults to the process-wide
+	 * singleton; tests pass one pointed at a fake Meld.
+	 */
+	constructor(connection: MeldConnection = meld) {
 		super();
+		this.meld = connection;
 		// One subscription set per action instance (a singleton). The connection
 		// re-emits a full snapshot on every (re)connect, so these cover hydration.
 		this.meld.on("ready", () => void this.renderAll("ready"));

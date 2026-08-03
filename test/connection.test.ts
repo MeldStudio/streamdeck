@@ -153,6 +153,27 @@ describe("MeldConnection", () => {
 		connection.unregisterTrackObserver("ctx-1");
 	});
 
+	test("delivers live session updates, not just the hydration snapshot", async () => {
+		// Every key and dial repaints off `sessionChanged`. If only the connect-time
+		// hydration emit reached listeners, the plugin would look healthy and then
+		// freeze: scene switches, layer toggles and mutes would never show up.
+		const updates: unknown[] = [];
+		const off = connection.on("sessionChanged", (session) => updates.push(session));
+
+		const scene = Object.entries(server.session.items).find(([, item]) => item.type === "scene")?.[0];
+		assert.ok(scene, "the scenario should contain a scene");
+		server.showScene(scene);
+		await sleep(120);
+
+		off();
+		assert.equal(updates.length, 1, "a session change in Meld must reach listeners");
+		assert.equal(
+			(connection.session?.items[scene] as { current?: boolean })?.current,
+			true,
+			"the connection's snapshot should reflect the change",
+		);
+	});
+
 	test("delivers recording updates from the current instance", async () => {
 		const recordings: boolean[] = [];
 		const off = connection.on("recordingChanged", (recording) => recordings.push(recording));
