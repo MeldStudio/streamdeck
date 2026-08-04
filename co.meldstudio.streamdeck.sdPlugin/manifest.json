@@ -11,7 +11,7 @@
 	},
 	"Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
 	"URL": "https://meldstudio.co",
-	"Version": "0.7.0.0",
+	"Version": "0.6.4.0",
 	"UUID": "co.meldstudio.streamdeck",
 	"OS": [
 		{
@@ -66,7 +66,7 @@
 				}
 			],
 			"SupportedInMultiActions": true,
-			"Tooltip": "Record a clip to disk!",
+			"Tooltip": "Record a configurable-duration clip to disk!",
 			"UUID": "co.meldstudio.streamdeck.clip",
 			"PropertyInspectorPath": "ui/clip.html"
 		},

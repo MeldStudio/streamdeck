@@ -12,8 +12,10 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
-Version 0.6.3.2
-- Fixed a bug in how dials and scene change actions store state.
+Version 0.6.4.0
+- Refactored the plugin onto Elgato's official Node.js Stream Deck SDK, with a single shared Meld Studio connection for all actions.
+- Added configurable durations to the Record Clip action. Choose a 10, 15, 30, 60, or 90 second preset, or enter a custom duration from 0 to 90 seconds.
+- Improved action state synchronization and recovery after Meld Studio reconnects and session restores.
 
 ## Helpful Links
 
@@ -21,7 +23,7 @@ https://meldstudio.co/
 
 ## Information
 
-Stream Deck 6.0 and later, macOS 12.3 and later.
+Stream Deck 7.1 and later, macOS 12.3 and later.
 Languages: English, German
 
 ## Support Links
@@ -32,6 +34,14 @@ hi@meldstudio.co
 ------------
 # Change History:
 ------------
+
+## 2026-08-04 (v0.6.4.0)
+### Changes:
+-----------
+- Refactored the plugin onto Elgato's official Node.js Stream Deck SDK, with a single shared Meld Studio connection for all actions.
+- Added configurable durations to the Record Clip action. Choose a 10, 15, 30, 60, or 90 second preset, or enter a custom duration from 0 to 90 seconds.
+- Improved action state synchronization and recovery after Meld Studio reconnects and session restores.
+
 
 ## 2026-05-13 (v0.6.3.2)
 ### Changes:

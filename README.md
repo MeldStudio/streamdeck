@@ -61,4 +61,4 @@ $ npx streamdeck pack co.meldstudio.streamdeck.sdPlugin
 
 Or simply `npm run pack`, which builds and packs in one step.
 
-This outputs a file `co.meldstudio.streamdeck.streamDeckPlugin` which can be installed directly.
+This outputs a file `co.meldstudio.streamdeck.streamDeckPlugin` which can be installed directly. Release artifacts are renamed to include the manifest version; for example, version 0.6.4.0 is distributed as `co.meldstudio.streamdeck.0.6.4.0.streamDeckPlugin`.
