@@ -248,6 +248,42 @@ describe("session toggles", () => {
 		assert.equal(key.state, 1);
 	});
 
+	test("layer and effect hide modes are idempotent force operations", async () => {
+		const layerSettings = { scene: ids.sceneA, layer: ids.layerA, action: "hide" };
+		const layerAction = new ToggleLayer(connection);
+		const layerKey = new FakeActionInstance("hide-layer", layerSettings);
+		mount(layerAction, [layerKey]);
+		await layerAction.onWillAppear(willAppear(layerKey, layerSettings) as never);
+		await press(layerAction, layerKey, layerSettings);
+		await press(layerAction, layerKey, layerSettings);
+		await sleep(80);
+		assert.equal(server.methods.toggleLayer.mock.callCount(), 1, "repeated hide must not reveal the layer");
+		assert.deepEqual(server.methods.toggleLayer.mock.calls.at(-1)?.arguments, [ids.sceneA, ids.layerA]);
+		assert.equal(layerKey.state, 0);
+
+		server.resetCalls();
+		const effectSettings = {
+			scene: ids.sceneA,
+			layer: ids.layerA,
+			effect: ids.effectA,
+			action: "hide",
+		};
+		const effectAction = new ToggleEffect(connection);
+		const effectKey = new FakeActionInstance("hide-effect", effectSettings);
+		mount(effectAction, [effectKey]);
+		await effectAction.onWillAppear(willAppear(effectKey, effectSettings) as never);
+		await press(effectAction, effectKey, effectSettings);
+		await press(effectAction, effectKey, effectSettings);
+		await sleep(80);
+		assert.equal(server.methods.toggleEffect.mock.callCount(), 1, "repeated hide must not enable the effect");
+		assert.deepEqual(server.methods.toggleEffect.mock.calls.at(-1)?.arguments, [
+			ids.sceneA,
+			ids.layerA,
+			ids.effectA,
+		]);
+		assert.equal(effectKey.state, 0);
+	});
+
 	test("force mode is idempotent and does not fake a state for a missing track", async () => {
 		const action = new ToggleMute(connection);
 		const present = { track: ids.track, action: "mute" };

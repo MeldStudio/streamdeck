@@ -249,6 +249,21 @@ describe("Media and ShowScene", () => {
 		assert.equal(server.methods.callFunctionWithArgs.mock.callCount(), 0);
 	});
 
+	test("fixed play and pause modes dispatch directly and paint uniform icons", async () => {
+		for (const mode of ["play", "pause"] as const) {
+			server.resetCalls();
+			const settings = { scene: ids.scene, layer: ids.clip, action: mode };
+			const action = new Media(connection);
+			const key = new FakeActionInstance(`media-${mode}`, settings);
+			mount(action, [key]);
+			await action.onWillAppear(willAppear(key, settings) as never);
+			await press(action, key, settings);
+
+			assert.deepEqual(server.methods.callFunction.mock.calls.at(-1)?.arguments, [ids.clip, mode]);
+			assert.ok(key.image?.includes(`media-controls-${mode}`), `${mode} should paint its fixed icon`);
+		}
+	});
+
 	test("a stale stored scene does not make the media key inert", async () => {
 		// Upgraded profiles can hold a scene from a previous selection. Meld's
 		// callFunction resolves the layer by id alone, so the key must keep working
@@ -493,5 +508,18 @@ describe("Media and ShowScene", () => {
 
 		assert.equal(server.methods.showScene.mock.callCount(), 0, "no command should reach Meld");
 		assert.deepEqual(key.states, [], "the key must not light for a scene that does not exist");
+	});
+
+	test("an unconfigured show-scene key stays off and never dispatches", async () => {
+		const action = new ShowScene(connection);
+		const key = new FakeActionInstance("scene-unconfigured", {});
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, {}) as never);
+		server.resetCalls();
+
+		await press(action, key, {});
+
+		assert.equal(key.state, 0);
+		assert.equal(server.methods.showScene.mock.callCount(), 0);
 	});
 });

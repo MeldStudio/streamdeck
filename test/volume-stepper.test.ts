@@ -409,4 +409,40 @@ describe("VolumeStepper", () => {
 		);
 		assert.equal(instance.feedback?.value, "--");
 	});
+
+	test("percent mode and every dial gesture dispatch the documented operation", async () => {
+		server.resetCalls();
+		const percent = { track: trackId, stepsize: "5", metertype: "percent" };
+		action.onDialRotate(dialRotate(dial, percent, 1) as never);
+		await sleep(80);
+		assert.equal(server.methods.setGain.mock.calls.at(-1)?.arguments[1], 0.55);
+		assert.equal(dial.feedback?.value, "55%");
+
+		action.onDialDown({ action: dial, payload: { settings: percent } } as never);
+		action.onKeyUp({ action: dial, payload: { settings: percent } } as never);
+		assert.equal(server.methods.toggleMute.mock.callCount(), 2, "dial push and keypad press both toggle mute");
+
+		action.onTouchTap({
+			action: dial,
+			payload: { settings: percent, hold: false, tapPos: [50, 0] },
+		} as never);
+		assert.deepEqual(server.methods.toggleMonitor.mock.calls.at(-1)?.arguments, [trackId]);
+
+		const beforeGain = server.methods.setGain.mock.callCount();
+		action.onTouchTap({
+			action: dial,
+			payload: { settings: percent, hold: false, tapPos: [130, 0] },
+		} as never);
+		await sleep(80);
+		assert.deepEqual(server.methods.setGain.mock.calls.at(-1)?.arguments, [trackId, 0.5]);
+
+		for (const payload of [
+			{ settings: percent, hold: true, tapPos: [130, 0] },
+			{ settings: percent, hold: false, tapPos: [181, 0] },
+			{ settings: { stepsize: "5", metertype: "percent" }, hold: false, tapPos: [130, 0] },
+		]) {
+			action.onTouchTap({ action: dial, payload } as never);
+		}
+		assert.equal(server.methods.setGain.mock.callCount(), beforeGain + 1, "ignored taps never set gain");
+	});
 });

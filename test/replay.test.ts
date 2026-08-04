@@ -176,14 +176,71 @@ describe("Replay", () => {
 		assert.ok(sent > 0.2 && sent < 0.4, `expected a step up from 0.2, got ${sent}`);
 	});
 
-	test("mute and cue presses target the replay track", async () => {
-		await press(action, key, { action: "mute" });
-		await sleep(60);
-		assert.deepEqual(server.methods.setMuted.mock.calls.at(-1)?.arguments, [trackId, true]);
+	test("every replay audio mode targets the replay track and paints its icon", async () => {
+		const cases = [
+			["toggle", "toggleMute", undefined, "ReplayMute/replay-clip-"],
+			["mute", "setMuted", true, "replay-clip-muted"],
+			["unmute", "setMuted", false, "replay-clip-unmuted"],
+			["toggle_cue", "toggleMonitor", undefined, "ReplayCUE/off"],
+			["cue", "setProperty", true, "ReplayCUE/on"],
+			["uncue", "setProperty", false, "ReplayCUE/off"],
+		] as const;
 
-		await press(action, key, { action: "cue" });
-		await sleep(60);
-		assert.deepEqual(server.methods.setProperty.mock.calls.at(-1)?.arguments, [trackId, "monitoring", true]);
+		for (const [mode, method, desired, icon] of cases) {
+			server.resetCalls();
+			await press(action, key, { action: mode });
+			await sleep(20);
+			assert.ok(key.image?.includes(icon), `${mode} should paint ${icon}, got ${key.image}`);
+			const call = server.methods[method].mock.calls.at(-1);
+			if (method === "setProperty") {
+				assert.deepEqual(call?.arguments, [trackId, "monitoring", desired]);
+			} else if (desired === undefined) {
+				assert.deepEqual(call?.arguments, [trackId]);
+			} else {
+				assert.deepEqual(call?.arguments, [trackId, desired]);
+			}
+		}
+	});
+
+	test("dismiss always sends its command while replay is a no-op when already shown", async () => {
+		await press(action, key, { action: "dismiss" });
+		assert.deepEqual(server.methods.sendCommand.mock.calls.at(-1)?.arguments, ["meld.replay.dismiss"]);
+		assert.ok(key.image?.includes("dismiss-clip-controls"));
+
+		server.resetCalls();
+		await press(action, key, { action: "replay" });
+		assert.equal(server.methods.sendCommand.mock.callCount(), 0, "an existing replay layer must not be shown twice");
+		assert.ok(key.image?.includes("replay-clip-controls"));
+	});
+
+	test("replay requests a clip when this Meld instance has none", async () => {
+		const builder = new SessionBuilder("no-replay");
+		builder.scene("Live", { current: true });
+		const empty = new MockWebChannel(builder.build("no-replay", "no replay clip"));
+		const emptyPort = await empty.listen(0);
+		const emptyConnection = new MeldConnection({ port: emptyPort, openWebChannel: openMockWebChannel });
+		try {
+			const ready = new Promise<void>((resolve) => {
+				const off = emptyConnection.on("ready", () => {
+					off();
+					resolve();
+				});
+			});
+			emptyConnection.connect();
+			await ready;
+
+			const replay = new Replay(emptyConnection);
+			const instance = new FakeActionInstance<Settings>("show-replay", { action: "replay" });
+			mount(replay, [instance]);
+			await replay.onWillAppear(willAppear(instance, { action: "replay" }) as never);
+			await press(replay, instance, { action: "replay" });
+
+			assert.deepEqual(empty.methods.sendCommand.mock.calls.at(-1)?.arguments, ["meld.replay.show"]);
+			assert.equal(empty.methods.registerTrackObserver.mock.callCount(), 0);
+		} finally {
+			emptyConnection.dispose();
+			await empty.close();
+		}
 	});
 
 	test("keeps the observer while another replay key is still on screen", async () => {

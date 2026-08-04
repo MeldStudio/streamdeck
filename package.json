@@ -9,7 +9,8 @@
 		"watch": "rollup -c -w --watch.onEnd=\"streamdeck restart co.meldstudio.streamdeck\"",
 		"pack": "npm run build && streamdeck pack co.meldstudio.streamdeck.sdPlugin --force",
 		"typecheck": "tsc --noEmit && tsc -p test",
-		"test": "node --import ./test/register-hooks.js --test --test-concurrency=1 test/*.test.ts"
+		"test": "node --import ./test/register-hooks.js --test --test-concurrency=1 test/*.test.ts",
+		"coverage": "node --import tsx --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/meld/qwebchannel.ts' --test-coverage-lines=90 --test-coverage-branches=79 --test-coverage-functions=75 test/*.test.ts"
 	},
 	"devDependencies": {
 		"@elgato/cli": "^1.7.4",

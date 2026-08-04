@@ -118,6 +118,22 @@ describe("TransitionStepper", () => {
 		);
 	});
 
+	test("a held touchscreen tap transitions while a normal tap does nothing", async () => {
+		// A negative tick also exercises reverse rotation and wrapping from no staged scene.
+		action.onDialRotate(dialRotate(dial, {}, -1) as never);
+		await sleep(60);
+		const requested = server.methods.setStagedScene.mock.calls.at(-1)?.arguments[0] as string;
+
+		server.resetCalls();
+		action.onTouchTap({ action: dial, payload: { settings: {}, hold: false, tapPos: [0, 0] } } as never);
+		assert.equal(server.methods.showStagedScene.mock.callCount(), 0);
+
+		action.onTouchTap({ action: dial, payload: { settings: {}, hold: true, tapPos: [0, 0] } } as never);
+		await sleep(80);
+		assert.equal(server.methods.showStagedScene.mock.callCount(), 1);
+		assert.equal((server.session.items[requested] as { current: boolean }).current, true);
+	});
+
 	test("does not transition when Meld refused the staged selection", async () => {
 		// setStagedScene silently refuses a scene that is already current, and the
 		// dial's list can be a snapshot behind after a scene switch made elsewhere.
