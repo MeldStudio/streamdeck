@@ -10,7 +10,7 @@ import { describe, test } from "node:test";
 
 import { MeldSession } from "../src/meld/session.ts";
 import type { Session } from "../src/meld/types.ts";
-import { SessionBuilder } from "../tools/fake-meld/session.ts";
+import { SessionBuilder } from "./helpers/session-builder.ts";
 
 /** A snapshot with a scene, two layers, an effect and two tracks. */
 function build(): { session: Session; ids: Record<string, string> } {

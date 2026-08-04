@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Meld Studio, Inc.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
-// The transition dial, driven end-to-end against the fake Meld. Meld resolves
+// The transition dial, driven end-to-end against the result-level Meld mock. Meld resolves
 // `setStagedScene` through its horizontal scene model only — unlike `showScene`,
 // which also searches the vertical one — so anything the dial offers from the
 // vertical canvas is a selection it can never actually reach.
@@ -12,9 +12,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import { TransitionStepper } from "../src/actions/transition-stepper.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
-import { FakeMeld } from "../tools/fake-meld/server.ts";
-import { type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
+import { type Scenario, SessionBuilder } from "./helpers/session-builder.ts";
 import { dialRotate, FakeActionInstance, keyEvent, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { MockWebChannel, openMockWebChannel } from "./helpers/mock-web-channel.ts";
 
 /** Three horizontal scenes plus a vertical twin of the first. */
 function build(): { scenario: Scenario; ids: Record<string, string> } {
@@ -27,7 +27,7 @@ function build(): { scenario: Scenario; ids: Record<string, string> } {
 }
 
 describe("TransitionStepper", () => {
-	let server: FakeMeld;
+	let server: MockWebChannel;
 	let connection: MeldConnection;
 	let action: TransitionStepper;
 	let dial: FakeActionInstance;
@@ -37,9 +37,9 @@ describe("TransitionStepper", () => {
 	before(async () => {
 		const built = build();
 		ids = built.ids;
-		server = new FakeMeld(built.scenario);
+		server = new MockWebChannel(built.scenario);
 		port = await server.listen(0);
-		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
 				off();
@@ -57,7 +57,7 @@ describe("TransitionStepper", () => {
 
 	beforeEach(async () => {
 		server.loadScenario(build().scenario);
-		server.invocations.length = 0;
+		server.resetCalls();
 		// Wait for the reloaded snapshot to actually reach the plugin: it rides the
 		// autosave debounce, so a shorter wait would leave each test reasoning from
 		// the previous one's state.
@@ -77,7 +77,7 @@ describe("TransitionStepper", () => {
 		for (let i = 0; i < 6; i++) {
 			action.onDialRotate(dialRotate(dial, {}, 1) as never);
 			await sleep(40);
-			staged.push(server.callsTo("setStagedScene").at(-1)?.args[0] as string);
+			staged.push(server.methods.setStagedScene.mock.calls.at(-1)?.arguments[0] as string);
 		}
 
 		assert.equal(staged.includes(ids.alphaV), false, "the vertical twin must never be staged");
@@ -94,7 +94,7 @@ describe("TransitionStepper", () => {
 		action.onDialRotate(dialRotate(dial, {}, 1) as never);
 		await sleep(60);
 
-		const requested = server.callsTo("setStagedScene").at(-1)?.args[0] as string;
+		const requested = server.methods.setStagedScene.mock.calls.at(-1)?.arguments[0] as string;
 		const stagedInMeld = Object.entries(server.session.items).find(
 			([, item]) => item.type === "scene" && item.staged,
 		)?.[0];
@@ -105,12 +105,12 @@ describe("TransitionStepper", () => {
 	test("pressing the dial transitions to the staged scene", async () => {
 		action.onDialRotate(dialRotate(dial, {}, 1) as never);
 		await sleep(60);
-		const requested = server.callsTo("setStagedScene").at(-1)?.args[0] as string;
+		const requested = server.methods.setStagedScene.mock.calls.at(-1)?.arguments[0] as string;
 
 		action.onDialDown(keyEvent(dial, {}) as never);
 		await sleep(80);
 
-		assert.equal(server.callsTo("showStagedScene").length, 1);
+		assert.equal(server.methods.showStagedScene.mock.callCount(), 1);
 		assert.equal(
 			(server.session.items[requested] as { current: boolean }).current,
 			true,
@@ -134,19 +134,19 @@ describe("TransitionStepper", () => {
 		// Meld does not share.
 		action.onDialRotate(dialRotate(dial, {}, 1) as never);
 		await sleep(80);
-		assert.deepEqual(server.callsTo("setStagedScene").at(-1)?.args, [ids.bravo]);
+		assert.deepEqual(server.methods.setStagedScene.mock.calls.at(-1)?.arguments, [ids.bravo]);
 		assert.equal(
 			Object.values(server.session.items).some((item) => item.type === "scene" && item.staged),
 			false,
 			"Meld refused the stage, as expected",
 		);
 
-		server.invocations.length = 0;
+		server.resetCalls();
 		action.onDialDown(keyEvent(dial, {}) as never);
 		await sleep(120);
 
 		assert.equal(
-			server.callsTo("showStagedScene").length,
+			server.methods.showStagedScene.mock.callCount(),
 			0,
 			"with nothing staged, the press must not ask Meld to swap to it",
 		);
@@ -172,7 +172,7 @@ describe("TransitionStepper", () => {
 		assert.equal(dial.feedback?.title, painted, "a disconnected dial must not fake a selection");
 
 		// Restore the instance for the remaining tests.
-		server = new FakeMeld(build().scenario);
+		server = new MockWebChannel(build().scenario);
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
 				off();

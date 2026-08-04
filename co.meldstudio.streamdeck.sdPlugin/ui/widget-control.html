@@ -75,8 +75,11 @@
 
         function resolveWidget(preferred, eventValue) {
             const available = Array.from(widgetEl.options).map((o) => o.value);
-            const candidate = preferred || deriveWidgetFromEvent(eventValue);
-            return available.includes(candidate) ? candidate : available[0] || DEFAULT_WIDGET;
+            if (available.includes(preferred)) {
+                return preferred;
+            }
+            const derived = deriveWidgetFromEvent(eventValue);
+            return available.includes(derived) ? derived : available[0] || DEFAULT_WIDGET;
         }
 
         // Show only the events belonging to the selected widget.
@@ -105,8 +108,20 @@
             amountEl.value = resolvedAmount;
             toggleAmountVisibility();
 
-            // Persist the normalized settings so defaults are recorded.
-            MeldPI.setSettings({ widget: resolvedWidget, event: eventEl.value, amount: resolvedAmount });
+            // Persist normalization once. Preserve fields owned by future plugin
+            // versions, and do not turn didReceiveSettings into a write/echo loop.
+            const normalized = Object.assign({}, settings, {
+                widget: resolvedWidget,
+                event: eventEl.value,
+                amount: resolvedAmount,
+            });
+            if (
+                settings.widget !== normalized.widget ||
+                settings.event !== normalized.event ||
+                settings.amount !== normalized.amount
+            ) {
+                MeldPI.setSettings(normalized);
+            }
         }
 
         MeldPI.onReady(() => {

@@ -8,6 +8,7 @@
 // configured but does nothing.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
 import { FakeDiv, FakeInput, FakeSelect, loadPropertyInspector } from "./helpers/fake-dom.ts";
@@ -25,6 +26,17 @@ const ITEMS = {
 };
 
 describe("property inspector runtime", () => {
+	test("the shared select styling supplies an explicit dropdown caret", () => {
+		const css = readFileSync(
+			new URL("../co.meldstudio.streamdeck.sdPlugin/libs/css/sdpi.css", import.meta.url),
+			"utf8",
+		);
+		assert.match(css, /background-image:\s*url\(\.\.\/assets\/caret\.svg\)/);
+		assert.match(css, /background-position:\s*right 6px center/);
+		assert.match(css, /select\.no-selection/);
+		assert.match(css, /font-style:\s*italic/);
+	});
+
 	test("registers with Stream Deck and asks the plugin for the session", () => {
 		const pi = loadPropertyInspector();
 		pi.socket.open();
@@ -60,8 +72,9 @@ describe("property inspector runtime", () => {
 		pi.MeldPI.bindSessionSelects(["scene"]);
 		pi.pushSession(ITEMS);
 
-		assert.deepEqual(scene.labels, ["[No Selection]", "Scene A", "Scene B", "Scene A [Vertical]"]);
+		assert.deepEqual(scene.labels, ["No Selection", "Scene A", "Scene B", "Scene A [Vertical]"]);
 		assert.equal(scene.value, "", "nothing configured means no selection");
+		assert.equal(scene.classList.contains("no-selection"), true, "the empty state should be visually muted");
 	});
 
 	test("a keepFilter hides items the action cannot use", () => {
@@ -73,7 +86,7 @@ describe("property inspector runtime", () => {
 		);
 		pi.pushSession(ITEMS);
 
-		assert.deepEqual(scene.labels, ["[No Selection]", "Scene A", "Scene B"]);
+		assert.deepEqual(scene.labels, ["No Selection", "Scene A", "Scene B"]);
 	});
 
 	test("a child select lists only the chosen parent's children", () => {
@@ -84,7 +97,7 @@ describe("property inspector runtime", () => {
 		pi.pushSession(ITEMS);
 
 		assert.equal(scene.value, "sceneA");
-		assert.deepEqual(layer.labels, ["[No Selection]", "Camera", "Overlay"]);
+		assert.deepEqual(layer.labels, ["No Selection", "Camera", "Overlay"]);
 		assert.equal(layer.values.includes("layerB1"), false, "another scene's layer must not be offered");
 	});
 
@@ -96,7 +109,7 @@ describe("property inspector runtime", () => {
 		pi.MeldPI.bindSessionSelects(["scene", "layer"]);
 		pi.pushSession(ITEMS);
 
-		assert.deepEqual(layer.labels, ["[No Selection]"]);
+		assert.deepEqual(layer.labels, ["No Selection"]);
 	});
 
 	test("changing a parent clears every downstream id in one write", () => {
@@ -116,7 +129,7 @@ describe("property inspector runtime", () => {
 		assert.deepEqual(writes[0].payload, { scene: "sceneB", layer: "", effect: "" });
 	});
 
-	test("a stale child id shows [No Selection] rather than a blank control", () => {
+	test("a stale child id shows No Selection rather than a blank control", () => {
 		// Legacy profiles hold pairs like {scene: B, layer: <child of A>} because the
 		// old inspector never cleared downstream keys.
 		const pi = loadPropertyInspector({ scene: "sceneB", layer: "layerA1" });
@@ -127,8 +140,9 @@ describe("property inspector runtime", () => {
 
 		assert.equal(scene.value, "sceneB");
 		assert.equal(layer.selectedIndex, 0, "a stale id must fall back to the placeholder");
-		assert.equal(layer.labels[0], "[No Selection]");
-		assert.deepEqual(layer.labels, ["[No Selection]", "Slides"], "only the new parent's children are offered");
+		assert.equal(layer.labels[0], "No Selection");
+		assert.deepEqual(layer.labels, ["No Selection", "Slides"], "only the new parent's children are offered");
+		assert.equal(layer.classList.contains("no-selection"), true);
 	});
 
 	test("a stale mid-chain id does not unfilter the select below it", () => {
@@ -142,7 +156,7 @@ describe("property inspector runtime", () => {
 		pi.pushSession(ITEMS);
 
 		assert.equal(layer.value, "", "the stale layer resolves to no selection");
-		assert.deepEqual(effect.labels, ["[No Selection]"], "no effect may be offered without a layer");
+		assert.deepEqual(effect.labels, ["No Selection"], "no effect may be offered without a layer");
 	});
 
 	test("selects repopulate when a new Meld instance publishes different ids", () => {
@@ -157,7 +171,7 @@ describe("property inspector runtime", () => {
 			fresh1: { type: "scene", name: "Live", current: true, staged: false, vertical: false, index: 0 },
 		});
 
-		assert.deepEqual(scene.labels, ["[No Selection]", "Live"]);
+		assert.deepEqual(scene.labels, ["No Selection", "Live"]);
 		assert.equal(scene.selectedIndex, 0, "the old id is gone, so the placeholder shows");
 	});
 
@@ -167,7 +181,7 @@ describe("property inspector runtime", () => {
 		pi.MeldPI.bindSessionSelects(["track"]);
 		pi.pushSession({}, false);
 
-		assert.deepEqual(track.labels, ["[No Selection]"]);
+		assert.deepEqual(track.labels, ["No Selection"]);
 	});
 
 	test("choosing an item persists exactly that id", () => {
@@ -183,6 +197,7 @@ describe("property inspector runtime", () => {
 		const writes = pi.socket.framesFor("setSettings");
 		assert.equal(writes.length, 1);
 		assert.deepEqual(writes[0].payload, { track: "trackMic" });
+		assert.equal(track.classList.contains("no-selection"), false);
 	});
 
 	test("bindField applies its fallback when the setting is absent", () => {
@@ -251,7 +266,7 @@ describe("property inspector runtime", () => {
 
 		assert.doesNotThrow(() => pi.socket.onmessage?.({ data: "not json" }));
 		pi.pushSession(ITEMS);
-		assert.deepEqual(scene.labels, ["[No Selection]", "Scene A", "Scene B", "Scene A [Vertical]"]);
+		assert.deepEqual(scene.labels, ["No Selection", "Scene A", "Scene B", "Scene A [Vertical]"]);
 	});
 
 	test("binding an id with no matching element is harmless", () => {

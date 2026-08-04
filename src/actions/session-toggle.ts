@@ -4,7 +4,7 @@
 import type { KeyUpEvent } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
-import type { MeldSession } from "../meld/index.js";
+import type { MeldConnection, MeldSession } from "../meld/index.js";
 import { MeldAction, type RenderArgs } from "./base.js";
 import { OptimisticStore } from "./optimistic.js";
 
@@ -37,6 +37,14 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		void this.renderAll("sessionChanged"),
 	);
 
+	constructor(connection?: MeldConnection) {
+		super(connection);
+		// A pending press belongs to one Meld process. If that process exits before
+		// its debounced snapshot confirms the command, the next instance must render
+		// from its own session rather than inherit the abandoned intent.
+		this.meld.on("closed", () => this.#pending.clearAll());
+	}
+
 	/** Key state shown when the configured item is absent from the session. */
 	protected abstract readonly missingItemState: 0 | 1;
 
@@ -48,6 +56,14 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 
 	/** The press-mode setting (`"toggle"`, the force-on value, or its inverse). */
 	protected abstract mode(settings: T): string | undefined;
+
+	/** Persist the historical implicit press mode so upgraded profiles are explicit. */
+	protected override migrateSettings(settings: T, _session: MeldSession): T {
+		if (this.mode(settings) != null) {
+			return settings;
+		}
+		return { ...settings, action: "toggle" } as T;
+	}
 
 	/**
 	 * The authoritative boolean for this action, or `null` when the target item is

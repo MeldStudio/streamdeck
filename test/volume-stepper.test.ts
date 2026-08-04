@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
 // The volume dial end-to-end: a real VolumeStepper on a real MeldConnection,
-// talking to the fake Meld. These cover the reconciliation rules that the
+// talking to the result-level Meld mock. These cover the reconciliation rules that the
 // dial-desync bug class kept violating — gain only ever arrives via the track
 // observer, an echo of an older write must not revert a newer one, and a value
 // that is never confirmed must not linger on the touchscreen.
@@ -13,9 +13,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import { VolumeStepper } from "../src/actions/volume-stepper.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
-import { FakeMeld } from "../tools/fake-meld/server.ts";
-import { SessionBuilder } from "../tools/fake-meld/session.ts";
+import { SessionBuilder } from "./helpers/session-builder.ts";
 import { dialRotate, disappear, FakeActionInstance, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { MockWebChannel, openMockWebChannel } from "./helpers/mock-web-channel.ts";
 
 type Settings = { track?: string; stepsize?: string; metertype?: string };
 
@@ -28,7 +28,7 @@ function audioScenario(gain: number): { scenario: ReturnType<SessionBuilder["bui
 }
 
 describe("VolumeStepper", () => {
-	let server: FakeMeld;
+	let server: MockWebChannel;
 	let connection: MeldConnection;
 	let action: VolumeStepper;
 	let dial: FakeActionInstance<Settings>;
@@ -38,9 +38,9 @@ describe("VolumeStepper", () => {
 	before(async () => {
 		const built = audioScenario(0.8);
 		trackId = built.trackId;
-		server = new FakeMeld(built.scenario);
+		server = new MockWebChannel(built.scenario);
 		port = await server.listen(0);
-		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
@@ -104,9 +104,9 @@ describe("VolumeStepper", () => {
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
 		await sleep(80);
 
-		const calls = server.callsTo("setGain");
+		const calls = server.methods.setGain.mock.calls;
 		assert.equal(calls.length, 1, "one rotation should send exactly one setGain");
-		const sent = calls[0].args[1] as number;
+		const sent = calls[0].arguments[1] as number;
 		assert.ok(sent > before, `rotating up should raise gain from ${before}, got ${sent}`);
 		// One tick at the default 1 dB step is a small move, not a jump to a rail.
 		assert.ok(sent < 1, "a single tick must not slam the track to full scale");
@@ -120,9 +120,9 @@ describe("VolumeStepper", () => {
 		// The echo lag must exceed the gap between ticks, so tick 1's echo lands
 		// while tick 2 is displayed and tick 2's echo is still in flight — the only
 		// window in which the reconciliation rule is observable.
-		const slow = new FakeMeld(audioScenario(0.5).scenario, { echoDelayMs: 400 });
+		const slow = new MockWebChannel(audioScenario(0.5).scenario, { echoDelayMs: 400 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const slowTrack = audioScenario(0.5).trackId;
 
 		try {
@@ -148,7 +148,7 @@ describe("VolumeStepper", () => {
 			slowAction.onDialRotate(dialRotate(slowDial, settings, 1) as never); // echo lands ~t+600
 			await sleep(40);
 
-			const sends = slow.callsTo("setGain").map((c) => c.args[1] as number);
+			const sends = slow.methods.setGain.mock.calls.map((call) => call.arguments[1] as number);
 			assert.equal(sends.length, 2, "each tick should send once");
 			assert.ok(sends[1] > sends[0], "the second tick must build on the first, not repeat it");
 			const paintedAfterTicks = slowDial.feedback?.value;
@@ -169,7 +169,7 @@ describe("VolumeStepper", () => {
 			// re-basing on the echoed older value silently loses a tick.
 			slowAction.onDialRotate(dialRotate(slowDial, settings, 1) as never);
 			await sleep(60);
-			const third = slow.callsTo("setGain").at(-1)?.args[1] as number;
+			const third = slow.methods.setGain.mock.calls.at(-1)?.arguments[1] as number;
 			assert.ok(third > sends[1], `the third tick should exceed ${sends[1]}, got ${third} (a tick was lost)`);
 		} finally {
 			slowConnection.dispose();
@@ -183,9 +183,9 @@ describe("VolumeStepper", () => {
 		// with a 0.1 dB step that delta is ~1e-5 — five orders of magnitude finer
 		// than a mid-scale 1 dB tick — and the step field accepts any number, so this
 		// is the regime that actually bounds the constant.
-		const tiny = new FakeMeld(audioScenario(0.001).scenario, { echoDelayMs: 400 });
+		const tiny = new MockWebChannel(audioScenario(0.001).scenario, { echoDelayMs: 400 });
 		const tinyPort = await tiny.listen(0);
-		const tinyConnection = new MeldConnection({ port: tinyPort, reconnectMinMs: 100 });
+		const tinyConnection = new MeldConnection({ port: tinyPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const tinyTrack = audioScenario(0.001).trackId;
 
 		try {
@@ -210,7 +210,7 @@ describe("VolumeStepper", () => {
 			tinyAction.onDialRotate(dialRotate(tinyDial, settings, 1) as never);
 			await sleep(40);
 
-			const sends = tiny.callsTo("setGain").map((c) => c.args[1] as number);
+			const sends = tiny.methods.setGain.mock.calls.map((call) => call.arguments[1] as number);
 			assert.equal(sends.length, 2);
 			assert.ok(sends[1] > sends[0], "the second tick builds on the first");
 
@@ -219,7 +219,7 @@ describe("VolumeStepper", () => {
 			tinyAction.onDialRotate(dialRotate(tinyDial, settings, 1) as never);
 			await sleep(60);
 
-			const third = tiny.callsTo("setGain").at(-1)?.args[1] as number;
+			const third = tiny.methods.setGain.mock.calls.at(-1)?.arguments[1] as number;
 			assert.ok(
 				third > sends[1],
 				`the third tick must exceed ${sends[1]}, got ${third} — the lagging echo was mistaken for confirmation`,
@@ -233,7 +233,7 @@ describe("VolumeStepper", () => {
 	test("a matching echo confirms and releases the optimistic value", async () => {
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
 		await sleep(80);
-		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
+		const sent = server.methods.setGain.mock.calls.at(-1)?.arguments[1] as number;
 		assert.equal(server.gainOf(trackId), sent);
 
 		// Confirmation is only observable through what happens next: with the
@@ -251,10 +251,10 @@ describe("VolumeStepper", () => {
 		);
 
 		// And the next tick must build on Meld's value, not the released one.
-		const before = server.callsTo("setGain").length;
+		const before = server.methods.setGain.mock.callCount();
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
 		await sleep(80);
-		const next = server.callsTo("setGain")[before].args[1] as number;
+		const next = server.methods.setGain.mock.calls[before].arguments[1] as number;
 		assert.ok(next > 0.25 && next < 0.35, `the next tick should step up from 0.25, got ${next}`);
 	});
 
@@ -263,9 +263,9 @@ describe("VolumeStepper", () => {
 		// touchscreen indefinitely: at TTL it is dropped and the dial repaints from
 		// the last authoritative gain. Here the echo is delayed past the 750ms TTL,
 		// so the repaint is observable before the confirmation finally lands.
-		const slow = new FakeMeld(audioScenario(0.5).scenario, { echoDelayMs: 1_500 });
+		const slow = new MockWebChannel(audioScenario(0.5).scenario, { echoDelayMs: 1_500 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const slowTrack = audioScenario(0.5).trackId;
 
 		try {
@@ -305,19 +305,19 @@ describe("VolumeStepper", () => {
 
 	test("keeps following the track after Meld restores the same session", async () => {
 		// Reopening a project tears down and rebuilds Meld's audio tracks without
-		// dropping the socket, which silently discards every observer registration.
+		// dropping the channel, which silently discards every observer registration.
 		// The ids are persisted, so they come back identical — and a registration
 		// deduped on "same context, same track" would never be re-sent, leaving the
 		// dial frozen with no gain updates for the rest of the connection.
 		// Count only what this test provokes: the shared server accumulates every
 		// earlier test's registrations, so an un-reset counter is already high
 		// enough to satisfy the assertion before the restore happens.
-		server.invocations.length = 0;
+		server.resetCalls();
 		server.loadScenario(audioScenario(0.4).scenario);
 		await sleep(800);
 
 		assert.equal(
-			server.callsTo("registerTrackObserver").length,
+			server.methods.registerTrackObserver.mock.callCount(),
 			1,
 			"the restore must provoke exactly one re-registration",
 		);
@@ -329,10 +329,10 @@ describe("VolumeStepper", () => {
 		assert.equal(dial.feedback?.value, "-12 dB", "the dial must still follow the restored track");
 
 		// The next tick steps from Meld's value, not a frozen one.
-		const before = server.callsTo("setGain").length;
+		const before = server.methods.setGain.mock.callCount();
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "1" }, 1) as never);
 		await sleep(80);
-		const sent = server.callsTo("setGain")[before].args[1] as number;
+		const sent = server.methods.setGain.mock.calls[before].arguments[1] as number;
 		assert.ok(sent > 0.25 && sent < 0.35, `expected a step up from 0.25, got ${sent}`);
 	});
 
@@ -366,15 +366,15 @@ describe("VolumeStepper", () => {
 
 	test("a blank step size still steps by the inspector default", async () => {
 		const gainBefore = server.gainOf(trackId) as number;
-		const before = server.callsTo("setGain").length;
+		const before = server.methods.setGain.mock.callCount();
 		// A user who clears the StepSize field persists "", which must not make the
 		// dial a silent no-op — sending the unchanged gain counts as one.
 		action.onDialRotate(dialRotate(dial, { track: trackId, stepsize: "" }, 1) as never);
 		await sleep(80);
 
-		const calls = server.callsTo("setGain");
+		const calls = server.methods.setGain.mock.calls;
 		assert.equal(calls.length, before + 1, "a blank step size must still send a gain");
-		const sent = calls.at(-1)?.args[1] as number;
+		const sent = calls.at(-1)?.arguments[1] as number;
 		assert.ok(sent > gainBefore, `the gain must actually move from ${gainBefore}, got ${sent}`);
 		// One 1 dB tick from mid-scale, not a jump to a rail.
 		assert.ok(sent < 0.6, `a single default-sized tick must stay small, got ${sent}`);
@@ -398,12 +398,12 @@ describe("VolumeStepper", () => {
 		await ghost.onWillAppear(willAppear(instance, { track: "DEADBEEF", stepsize: "1" }, "Encoder") as never);
 		await sleep(60);
 
-		const before = server.callsTo("setGain").length;
+		const before = server.methods.setGain.mock.callCount();
 		ghost.onDialRotate(dialRotate(instance, { track: "DEADBEEF", stepsize: "1" }, 1) as never);
 		await sleep(60);
 
 		assert.equal(
-			server.callsTo("setGain").length,
+			server.methods.setGain.mock.callCount(),
 			before,
 			"with no known gain the dial must not guess a value and send it",
 		);

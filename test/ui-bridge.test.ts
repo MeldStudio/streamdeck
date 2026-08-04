@@ -14,8 +14,8 @@ import streamDeck from "@elgato/streamdeck";
 
 import { MeldConnection } from "../src/meld/connection.ts";
 import { registerUiBridge } from "../src/ui-bridge.ts";
-import { FakeMeld } from "../tools/fake-meld/server.ts";
-import { type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
+import { type Scenario, SessionBuilder } from "./helpers/session-builder.ts";
+import { MockWebChannel, openMockWebChannel } from "./helpers/mock-web-channel.ts";
 
 /** A payload the bridge pushed to the property inspector. */
 type Pushed = { event: string; connected: boolean; items: Record<string, { type: string }> };
@@ -34,7 +34,7 @@ describe("ui bridge", () => {
 	let inspectorAppeared: (() => void) | undefined;
 	let restore: () => void;
 
-	let server: FakeMeld;
+	let server: MockWebChannel;
 	let connection: MeldConnection;
 	let port = 0;
 	let first: ReturnType<typeof scenarioFor>;
@@ -57,9 +57,9 @@ describe("ui bridge", () => {
 		restore = () => Object.assign(ui, original);
 
 		first = scenarioFor("uiA");
-		server = new FakeMeld(first.scenario);
+		server = new MockWebChannel(first.scenario);
 		port = await server.listen(0);
-		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		registerUiBridge(connection);
 	});
 
@@ -135,7 +135,7 @@ describe("ui bridge", () => {
 		// A different Meld instance: the inspector must be offered the new ids.
 		const second = scenarioFor("uiB");
 		pushes.length = 0;
-		server = new FakeMeld(second.scenario);
+		server = new MockWebChannel(second.scenario);
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
 				off();

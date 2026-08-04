@@ -1,25 +1,34 @@
 // Copyright (c) 2024 Meld Studio, Inc.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
-// Drives the real connection layer against the fake Meld from tools/fake-meld
-// (the same server the `npm run fake-meld` dev tool uses, so the two cannot
-// drift) over many connect/drop/reconnect cycles.
+// Drives the real connection lifecycle against the initialized `meld` object
+// shape from WebChannelAPI.md, without coupling functional tests to Qt's wire
+// protocol or opening localhost sockets.
 //
 // The plugin is one long-lived process that outlives many Meld instances, so the
 // invariant under test is that every reconnect re-derives state from the NEW
 // instance rather than carrying anything over from the old one.
 //
-// Everything runs on an ephemeral port, never Meld's real one, so the suite
-// cannot disturb (or be disturbed by) a Meld Studio or Stream Deck plugin
-// running on the same machine.
+// Virtual ports isolate instances without disturbing (or being disturbed by)
+// a Meld Studio or Stream Deck plugin running on the same machine.
 
 import assert from "node:assert/strict";
-import { after, before, describe, test } from "node:test";
+import { after, before, describe, mock, test } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { MeldConnection } from "../src/meld/connection.ts";
-import { FakeMeld, type FakeMeldOptions } from "../tools/fake-meld/server.ts";
-import { type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
+import {
+	MeldConnection,
+	type OpenWebChannel,
+	type WebChannelCallbacks,
+	type WebChannelHandle,
+} from "../src/meld/connection.ts";
+import type { MeldObject, MeldSignal } from "../src/meld/types.ts";
+import {
+	MockWebChannel,
+	type MockWebChannelOptions,
+	openMockWebChannel,
+} from "./helpers/mock-web-channel.ts";
+import { type Scenario, SessionBuilder } from "./helpers/session-builder.ts";
 
 /** Builds a one-scene, one-track scenario with ids derived from `tag`. */
 function tinyScenario(tag: string, gain = 0.5): { scenario: Scenario; sceneId: string; trackId: string } {
@@ -44,9 +53,63 @@ function once(connection: MeldConnection, event: "ready" | "closed", timeoutMs =
 	});
 }
 
+type ManualAttempt = WebChannelHandle & {
+	callbacks: WebChannelCallbacks;
+	closeCount: number;
+};
+
+/** Captures lifecycle callbacks so tests can deliver hostile/stale orderings. */
+function manualWebChannels(): { attempts: ManualAttempt[]; openWebChannel: OpenWebChannel } {
+	const attempts: ManualAttempt[] = [];
+	return {
+		attempts,
+		openWebChannel: (_url, callbacks) => {
+			let closed = false;
+			const attempt: ManualAttempt = {
+				callbacks,
+				closeCount: 0,
+				close(): void {
+					if (closed) return;
+					closed = true;
+					attempt.closeCount++;
+				},
+			};
+			attempts.push(attempt);
+			return attempt;
+		},
+	};
+}
+
+function inertSignal<Args extends unknown[]>(): MeldSignal<Args> {
+	return { connect: () => {}, disconnect: () => {} };
+}
+
+/** Minimal documented API result for lifecycle-only tests. */
+function manualMeld(): MeldObject {
+	return {
+		version: 3,
+		session: { items: {} },
+		isStreaming: false,
+		isRecording: false,
+		sessionChanged: inertSignal(),
+		isStreamingChanged: inertSignal(),
+		isRecordingChanged: inertSignal(),
+		showScene: () => {},
+		setStagedScene: () => {},
+		showStagedScene: () => {},
+		toggleMute: () => {},
+		toggleMonitor: () => {},
+		toggleLayer: () => {},
+		toggleEffect: () => {},
+		toggleRecord: () => {},
+		toggleStream: () => {},
+		setGain: () => {},
+	};
+}
+
 describe("MeldConnection", () => {
 	let connection: MeldConnection;
-	let server: FakeMeld;
+	let server: MockWebChannel;
 	let port = 0;
 	let firstTrackId = "";
 
@@ -62,8 +125,8 @@ describe("MeldConnection", () => {
 	 * hydrate, plus a moment for the traffic it sends afterwards (observer
 	 * re-registration) to reach the server.
 	 */
-	async function startInstance(scenario: Scenario, options?: FakeMeldOptions): Promise<void> {
-		server = new FakeMeld(scenario, options);
+	async function startInstance(scenario: Scenario, options?: MockWebChannelOptions): Promise<void> {
+		server = new MockWebChannel(scenario, options);
 		const ready = once(connection, "ready", 20_000);
 		await server.listen(port);
 		await ready;
@@ -71,14 +134,14 @@ describe("MeldConnection", () => {
 	}
 
 	before(async () => {
-		// Bind an ephemeral port first, then point the connection at it.
+		// Allocate an isolated virtual endpoint, then point the connection at it.
 		const first = tinyScenario("A");
 		firstTrackId = first.trackId;
-		server = new FakeMeld(first.scenario);
+		server = new MockWebChannel(first.scenario);
 		port = await server.listen(0);
 		// Compressed timings so the watchdog is genuinely exercised rather than
 		// waiting out the production 10s bound.
-		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 
 		const ready = once(connection, "ready");
 		connection.connect();
@@ -92,8 +155,21 @@ describe("MeldConnection", () => {
 
 	test("exposes the API version and session of the connected instance", () => {
 		assert.equal(connection.ready, true);
-		assert.equal(connection.meld?.version, 2, "the fake advertises the same API version as Meld");
+		assert.equal(connection.meld?.version, 3, "the mock advertises the same API version as Meld");
 		assert.ok(connection.session?.items[firstTrackId], "the instance's track should be present");
+	});
+
+	test("connect is idempotent while an instance is already connected", async () => {
+		const accepted = server.acceptedConnections;
+		const meldObject = connection.meld;
+
+		connection.connect();
+		connection.connect();
+		await sleep(250);
+
+		assert.equal(server.acceptedConnections, accepted, "repeated startup calls must not open another channel");
+		assert.equal(connection.meld, meldObject, "the healthy instance must not be torn down and replaced");
+		assert.equal(connection.ready, true);
 	});
 
 	test("session tracks carry no gain, matching StreamDeckMapper", () => {
@@ -107,6 +183,7 @@ describe("MeldConnection", () => {
 	});
 
 	test("replaces all state when a different Meld instance takes over", async () => {
+		const oldInstance = server;
 		await dropInstance();
 		assert.equal(connection.ready, false);
 		assert.equal(connection.meld, undefined, "the meld object must not survive a disconnect");
@@ -121,6 +198,15 @@ describe("MeldConnection", () => {
 			undefined,
 			"the previous instance's items must not survive the reconnect",
 		);
+
+		const staleRecordings: boolean[] = [];
+		const off = connection.on("recordingChanged", (recording) => staleRecordings.push(recording));
+		oldInstance.setRecording(true);
+		await sleep(0);
+		off();
+		assert.deepEqual(staleRecordings, [], "signals queued by the stopped instance must be ignored");
+		const recordingOf = (candidate: MeldConnection): boolean | undefined => candidate.meld?.isRecording;
+		assert.equal(recordingOf(connection), false, "stale signals must not mutate the new instance");
 	});
 
 	test("registering an observer yields an immediate gain update", async () => {
@@ -140,15 +226,22 @@ describe("MeldConnection", () => {
 	});
 
 	test("re-registers track observers against each new instance", async () => {
-		assert.equal(server.callsTo("registerTrackObserver").length, 1);
+		assert.equal(server.methods.registerTrackObserver.mock.callCount(), 1);
 
-		const previousTrack = server.callsTo("registerTrackObserver")[0].args[1];
+		const previousTrack = server.methods.registerTrackObserver.mock.calls[0].arguments[1];
 		await dropInstance();
 		await startInstance(tinyScenario("D").scenario);
 
-		const registrations = server.callsTo("registerTrackObserver");
+		const registrations = server.methods.registerTrackObserver.mock.calls;
 		assert.equal(registrations.length, 1, "the observer should be re-registered exactly once on the new instance");
-		assert.deepEqual(registrations[0].args, ["ctx-1", previousTrack]);
+		assert.deepEqual(registrations[0].arguments, ["ctx-1", previousTrack]);
+
+		connection.registerTrackObserver("ctx-1", previousTrack as string);
+		assert.equal(
+			server.methods.registerTrackObserver.mock.callCount(),
+			1,
+			"a render after reconnect must not duplicate the registration",
+		);
 
 		connection.unregisterTrackObserver("ctx-1");
 	});
@@ -179,18 +272,16 @@ describe("MeldConnection", () => {
 		);
 	});
 
-	test("delivers every property update queued while the client was busy", async () => {
-		// Qt withholds property updates until the client acknowledges the last one,
-		// then merges everything pending into a single frame. A peer that instead
-		// forwarded only the newest would silently strand state — a streaming flag
-		// stuck false with no further event to correct it.
+	test("delivers independent session, streaming, and recording results published together", async () => {
+		// The functional boundary receives initialized properties and their signals.
+		// Publishing several results in one turn must not let one handler strand the
+		// others at an older value.
 		const streaming: boolean[] = [];
 		const recording: boolean[] = [];
 		const offStreaming = connection.on("streamingChanged", (value) => streaming.push(value));
 		const offRecording = connection.on("recordingChanged", (value) => recording.push(value));
 
-		// Three publishes in one turn (no debounce, so the session goes out too):
-		// the first is sent, the other two are withheld until the client acks.
+		// Three result changes in one turn (no debounce, so the session arrives too).
 		const builder = new SessionBuilder("busy");
 		builder.scene("Scene busy", { current: true });
 		const busyTrack = builder.track("Track busy", { gain: 0.5 });
@@ -258,10 +349,10 @@ describe("MeldConnection", () => {
 	test("abandons and retries a peer that never completes the handshake", async () => {
 		await dropInstance();
 
-		// A peer that accepts the socket, never answers init and never closes is the
-		// case `onclose` cannot rescue: only the watchdog can. Proving recovery means
-		// showing a SECOND connection arrives at that same still-listening peer.
-		const stalled = new FakeMeld(tinyScenario("stalled").scenario, { stallHandshake: true });
+		// A peer that accepts a channel attempt, never produces an initialized object,
+		// and never closes is the case `closed` cannot rescue: only the watchdog can.
+		// Proving recovery means showing a second attempt reaches the same peer.
+		const stalled = new MockWebChannel(tinyScenario("stalled").scenario, { stallHandshake: true });
 		await stalled.listen(port);
 
 		try {
@@ -272,11 +363,11 @@ describe("MeldConnection", () => {
 				stalled.acceptedConnections >= 2,
 				`the watchdog should have abandoned and redialled; the stalled peer saw ${stalled.acceptedConnections} connection(s)`,
 			);
-			// Abandoning means closing: leaving the dead sockets open would pile up a
+			// Abandoning means closing: leaving dead attempts open would pile up a
 			// connection per retry against a peer that never answers.
 			assert.ok(
 				stalled.clientCount <= 1,
-				`abandoned sockets must be closed; ${stalled.clientCount} were still open`,
+				`abandoned attempts must be closed; ${stalled.clientCount} were still open`,
 			);
 		} finally {
 			// Release the port even when an assertion fails, so one failure does not
@@ -296,9 +387,9 @@ describe("MeldConnection", () => {
 		// rejected by that branch specifically. This connection's watchdog is set
 		// far beyond the test window so it cannot rescue the case and disguise a
 		// missing retry.
-		const wrongPeer = new FakeMeld(tinyScenario("wrong").scenario, { omitMeldObject: true });
+		const wrongPeer = new MockWebChannel(tinyScenario("wrong").scenario, { omitMeldObject: true });
 		const wrongPort = await wrongPeer.listen(0);
-		const probe = new MeldConnection({ port: wrongPort, handshakeTimeoutMs: 60_000, reconnectMinMs: 100 });
+		const probe = new MeldConnection({ port: wrongPort, handshakeTimeoutMs: 60_000, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 
 		try {
 			probe.connect();
@@ -320,7 +411,7 @@ describe("MeldConnection", () => {
 	test("dispose leaves no connection reported as ready", async () => {
 		// A disposed connection that still reports ready would hand actions a dead
 		// transport, and would disarm the watchdog on a later connect().
-		const throwaway = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		const throwaway = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const ready = once(throwaway, "ready");
 		throwaway.connect();
 		await ready;
@@ -342,5 +433,232 @@ describe("MeldConnection", () => {
 		connection.registerTrackObserver("ctx-2", trackId);
 		connection.unregisterTrackObserver("ctx-2");
 		assert.equal(connection.session?.items[trackId]?.type, "track");
+	});
+});
+
+describe("MeldConnection attempt lifecycle", () => {
+	test("retries when an asynchronous ready result has a malformed signal", () => {
+		mock.timers.enable({ apis: ["setTimeout"] });
+		try {
+			const manual = manualWebChannels();
+			const connection = new MeldConnection({ reconnectMinMs: 100, openWebChannel: manual.openWebChannel });
+			let readyCount = 0;
+			let closedCount = 0;
+			connection.on("ready", () => readyCount++);
+			connection.on("closed", () => closedCount++);
+
+			connection.connect();
+			const malformed = manualMeld();
+			malformed.sessionChanged = {
+				connect: () => {
+					throw new Error("malformed session signal");
+				},
+				disconnect: () => {},
+			};
+			manual.attempts[0].callbacks.ready(malformed);
+
+			assert.equal(connection.ready, false);
+			assert.equal(connection.meld, undefined);
+			assert.equal(manual.attempts[0].closeCount, 1);
+			assert.equal(readyCount, 0);
+			assert.equal(closedCount, 0, "a rejected handshake must not emit an unmatched closed event");
+			mock.timers.tick(99);
+			assert.equal(manual.attempts.length, 1);
+			mock.timers.tick(1);
+			assert.equal(manual.attempts.length, 2, "the malformed result should be retried");
+			connection.dispose();
+		} finally {
+			mock.timers.reset();
+		}
+	});
+
+	test("retries when observer restoration throws during ready", () => {
+		mock.timers.enable({ apis: ["setTimeout"] });
+		try {
+			const manual = manualWebChannels();
+			const connection = new MeldConnection({ reconnectMinMs: 100, openWebChannel: manual.openWebChannel });
+			connection.registerTrackObserver("ctx", "track");
+			connection.connect();
+			const rejecting = manualMeld();
+			rejecting.registerTrackObserver = () => {
+				throw new Error("observer rejected");
+			};
+
+			manual.attempts[0].callbacks.ready(rejecting);
+			assert.equal(connection.ready, false);
+			assert.equal(connection.meld, undefined);
+			assert.equal(manual.attempts[0].closeCount, 1);
+			mock.timers.tick(100);
+			assert.equal(manual.attempts.length, 2);
+			connection.dispose();
+		} finally {
+			mock.timers.reset();
+		}
+	});
+
+	test("stops old-instance hydration when a ready listener disposes", () => {
+		const manual = manualWebChannels();
+		const connection = new MeldConnection({ openWebChannel: manual.openWebChannel });
+		const events: string[] = [];
+		connection.on("ready", () => {
+			events.push("ready");
+			connection.dispose();
+		});
+		connection.on("closed", () => events.push("closed"));
+		connection.on("sessionChanged", () => events.push("session"));
+		connection.on("streamingChanged", () => events.push("streaming"));
+		connection.on("recordingChanged", () => events.push("recording"));
+
+		connection.connect();
+		manual.attempts[0].callbacks.ready(manualMeld());
+
+		assert.deepEqual(events, ["ready", "closed"]);
+		assert.equal(connection.ready, false);
+		assert.equal(connection.meld, undefined);
+	});
+
+	test("ignores late readiness after a handshake timeout and during reconnect backoff", () => {
+		mock.timers.enable({ apis: ["setTimeout"] });
+		try {
+			const manual = manualWebChannels();
+			const connection = new MeldConnection({
+				handshakeTimeoutMs: 100,
+				reconnectMinMs: 1_000,
+				openWebChannel: manual.openWebChannel,
+			});
+			let readyCount = 0;
+			connection.on("ready", () => readyCount++);
+
+			connection.connect();
+			connection.connect();
+			connection.connect();
+			assert.equal(manual.attempts.length, 1, "connect must be idempotent while the handshake is pending");
+
+			mock.timers.tick(100);
+			assert.equal(manual.attempts[0].closeCount, 1, "the timed-out attempt must be closed once");
+
+			// A result already queued by the abandoned adapter must not revive it.
+			manual.attempts[0].callbacks.ready(manualMeld());
+			assert.equal(connection.ready, false);
+			assert.equal(connection.meld, undefined);
+			assert.equal(readyCount, 0);
+
+			connection.connect();
+			connection.connect();
+			mock.timers.tick(999);
+			assert.equal(manual.attempts.length, 1, "repeated connect must not bypass reconnect backoff");
+			mock.timers.tick(1);
+			assert.equal(manual.attempts.length, 2, "the one scheduled retry should open exactly once");
+
+			connection.connect();
+			assert.equal(manual.attempts.length, 2, "connect must remain idempotent during the retry handshake");
+			connection.dispose();
+		} finally {
+			mock.timers.reset();
+		}
+	});
+
+	test("keeps ready and closed exact-once across reconnect and dispose", () => {
+		mock.timers.enable({ apis: ["setTimeout"] });
+		try {
+			const manual = manualWebChannels();
+			const connection = new MeldConnection({
+				handshakeTimeoutMs: 10_000,
+				reconnectMinMs: 100,
+				openWebChannel: manual.openWebChannel,
+			});
+			let readyCount = 0;
+			let closedCount = 0;
+			let reconnectOnClose = true;
+			connection.on("ready", () => readyCount++);
+			connection.on("closed", () => {
+				closedCount++;
+				if (reconnectOnClose) {
+					// Models another startup owner reacting synchronously to the drop.
+					connection.connect();
+					connection.connect();
+				}
+			});
+
+			connection.connect();
+			manual.attempts[0].callbacks.ready(manualMeld());
+			manual.attempts[0].callbacks.ready(manualMeld());
+			assert.equal(readyCount, 1, "duplicate adapter readiness must be ignored");
+
+			manual.attempts[0].callbacks.closed();
+			manual.attempts[0].callbacks.closed();
+			assert.equal(closedCount, 1, "duplicate close callbacks must be ignored");
+			assert.equal(manual.attempts.length, 2, "the closed listener's repeated connect opens one attempt");
+			mock.timers.tick(1_000);
+			assert.equal(manual.attempts.length, 2, "the old close path must not leave a replacement timer armed");
+
+			manual.attempts[1].callbacks.ready(manualMeld());
+			manual.attempts[1].callbacks.ready(manualMeld());
+			assert.equal(readyCount, 2);
+
+			// dispose emits closed, but connect() from that listener cannot defeat the
+			// in-progress teardown. A later explicit connect is still allowed.
+			connection.dispose();
+			connection.dispose();
+			assert.equal(closedCount, 2);
+			assert.equal(manual.attempts.length, 2);
+			assert.equal(connection.ready, false);
+
+			reconnectOnClose = false;
+			connection.connect();
+			assert.equal(manual.attempts.length, 3);
+			manual.attempts[2].callbacks.ready(manualMeld());
+			assert.equal(readyCount, 3);
+			connection.dispose();
+			assert.equal(closedCount, 3);
+		} finally {
+			mock.timers.reset();
+		}
+	});
+
+	test("ignores a ready callback retained past dispose", () => {
+		const manual = manualWebChannels();
+		const connection = new MeldConnection({ openWebChannel: manual.openWebChannel });
+		let readyCount = 0;
+		connection.on("ready", () => readyCount++);
+
+		connection.connect();
+		connection.dispose();
+		manual.attempts[0].callbacks.ready(manualMeld());
+
+		assert.equal(connection.ready, false);
+		assert.equal(connection.meld, undefined);
+		assert.equal(readyCount, 0);
+		assert.equal(manual.attempts[0].closeCount, 1);
+	});
+
+	test("an explicit dispose-connect cycle resets accumulated reconnect backoff", () => {
+		mock.timers.enable({ apis: ["setTimeout"] });
+		try {
+			const manual = manualWebChannels();
+			const connection = new MeldConnection({
+				handshakeTimeoutMs: 10_000,
+				reconnectMinMs: 100,
+				openWebChannel: manual.openWebChannel,
+			});
+
+			connection.connect();
+			manual.attempts[0].callbacks.closed();
+			mock.timers.tick(100);
+			manual.attempts[1].callbacks.closed();
+			mock.timers.tick(150);
+			manual.attempts[2].callbacks.closed(); // next automatic delay has grown to 225ms
+
+			connection.dispose(); // cancel that retry and begin an explicit lifecycle
+			connection.connect();
+			manual.attempts[3].callbacks.closed();
+			mock.timers.tick(99);
+			assert.equal(manual.attempts.length, 4);
+			mock.timers.tick(1);
+			assert.equal(manual.attempts.length, 5, "the new lifecycle should retry at the 100ms minimum");
+			connection.dispose();
+		} finally {
+			mock.timers.reset();
+		}
 	});
 });

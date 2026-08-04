@@ -16,6 +16,63 @@ type QWebChannelConstructor = new (
 
 const QWebChannel = QWebChannelImpl as unknown as QWebChannelConstructor;
 
+/** Callbacks produced by one WebChannel connection attempt. */
+export type WebChannelCallbacks = {
+	ready(meld: MeldObject | undefined): void;
+	closed(): void;
+	error(): void;
+};
+
+/** A live WebChannel attempt. Closing it must not call {@link WebChannelCallbacks.closed}. */
+export type WebChannelHandle = {
+	close(): void;
+};
+
+/**
+ * Opens a WebChannel and reports its public `meld` object once initialized.
+ *
+ * Keeping this seam at the initialized-object boundary lets functional tests
+ * supply exactly the API documented by WebChannelAPI.md without reproducing
+ * Qt's private wire protocol.
+ */
+export type OpenWebChannel = (url: string, callbacks: WebChannelCallbacks) => WebChannelHandle;
+
+/** Builds the small adapter from a WebSocket transport to the result-level seam. */
+export function createWebChannelOpener(
+	createSocket: (url: string) => WebSocket,
+	initialize: (socket: WebSocket, ready: (meld: MeldObject | undefined) => void) => void,
+): OpenWebChannel {
+	return (url, callbacks) => {
+		const socket = createSocket(url);
+		socket.onopen = (): void => initialize(socket, callbacks.ready);
+		socket.onclose = callbacks.closed;
+		socket.onerror = callbacks.error;
+		return {
+			close(): void {
+				// A caller-initiated close is teardown, not a second remote-close event.
+				socket.onopen = null;
+				socket.onclose = null;
+				socket.onerror = null;
+				socket.onmessage = null;
+				try {
+					socket.close();
+				} catch {
+					// ignore
+				}
+			},
+		};
+	};
+}
+
+/** Production adapter from WebSocket/QWebChannel to the result-level seam. */
+const openWebChannel = createWebChannelOpener(
+	(url) => new WebSocket(url),
+	(socket, ready) => {
+		// eslint-disable-next-line no-new -- QWebChannel wires itself onto the transport.
+		new QWebChannel(socket, (channel) => ready(channel.objects.meld));
+	},
+);
+
 /** Where Meld Studio's WebChannel server listens. */
 const MELD_ADDRESS = "127.0.0.1";
 const MELD_PORT = 13376;
@@ -28,6 +85,8 @@ export type MeldConnectionOptions = {
 	handshakeTimeoutMs?: number;
 	/** Shortened by tests so reconnect cycles do not dominate the run time. */
 	reconnectMinMs?: number;
+	/** Result-level WebChannel adapter; functional tests inject a mock here. */
+	openWebChannel?: OpenWebChannel;
 };
 
 /** Reconnect backoff bounds (milliseconds). */
@@ -82,19 +141,24 @@ export class MeldConnection {
 	/** Starting reconnect delay, grown on each consecutive failure. */
 	readonly #reconnectMinMs: number;
 
+	/** Opens the production WebChannel, or a result-level test double. */
+	readonly #openWebChannel: OpenWebChannel;
+
 	constructor({
 		address = MELD_ADDRESS,
 		port = MELD_PORT,
 		handshakeTimeoutMs = HANDSHAKE_TIMEOUT_MS,
 		reconnectMinMs = RECONNECT_MIN_MS,
+		openWebChannel: openChannel = openWebChannel,
 	}: MeldConnectionOptions = {}) {
 		this.#url = `ws://${address}:${port}`;
 		this.#handshakeTimeoutMs = handshakeTimeoutMs;
 		this.#reconnectMinMs = reconnectMinMs;
+		this.#openWebChannel = openChannel;
 		this.#reconnectDelay = reconnectMinMs;
 	}
 
-	#socket?: WebSocket;
+	#channel?: WebChannelHandle;
 	#meld?: MeldObject;
 	#ready = false;
 	#reconnectDelay = RECONNECT_MIN_MS;
@@ -102,6 +166,7 @@ export class MeldConnection {
 	#handshakeTimer?: ReturnType<typeof setTimeout>;
 	#generation = 0;
 	#disposed = false;
+	#disposeDepth = 0;
 
 	/** The live `meld` object, or `undefined` when disconnected. */
 	get meld(): MeldObject | undefined {
@@ -125,19 +190,36 @@ export class MeldConnection {
 
 	/** Opens the connection and keeps it alive until {@link dispose} is called. */
 	connect(): void {
+		// `connect` is deliberately idempotent. In a long-lived plugin more than one
+		// startup path may ask for the singleton connection; a second call must not
+		// replace a healthy Meld instance or leave a timer that does so later.
+		if (
+			this.#disposeDepth > 0 ||
+			(!this.#disposed && (this.#channel || this.#reconnectTimer || this.#handshakeTimer || this.#ready))
+		) {
+			return;
+		}
 		this.#disposed = false;
+		// An explicit start begins a fresh lifecycle. Do not carry a long failure
+		// backoff across dispose/connect cycles (for example, a plugin restart hook).
+		this.#reconnectDelay = this.#reconnectMinMs;
 		this.#open();
 	}
 
-	/** Permanently closes the connection and cancels any pending reconnect. */
+	/** Stops the connection and cancels any pending reconnect. A later connect may restart it. */
 	dispose(): void {
-		this.#disposed = true;
-		if (this.#reconnectTimer) {
-			clearTimeout(this.#reconnectTimer);
-			this.#reconnectTimer = undefined;
+		this.#disposeDepth++;
+		try {
+			this.#disposed = true;
+			if (this.#reconnectTimer) {
+				clearTimeout(this.#reconnectTimer);
+				this.#reconnectTimer = undefined;
+			}
+			this.#teardownSocket();
+			this.#observers.clear();
+		} finally {
+			this.#disposeDepth--;
 		}
-		this.#teardownSocket();
-		this.#observers.clear();
 	}
 
 	/**
@@ -159,8 +241,11 @@ export class MeldConnection {
 		}
 		this.#observers.set(context, trackId);
 		if (this.#ready) {
-			this.#meld?.registerTrackObserver?.(context, trackId);
-			this.#registered.add(context);
+			const register = this.#meld?.registerTrackObserver;
+			register?.(context, trackId);
+			if (register) {
+				this.#registered.add(context);
+			}
 		}
 	}
 
@@ -187,25 +272,8 @@ export class MeldConnection {
 		this.#teardownSocket();
 
 		const generation = ++this.#generation;
-		let socket: WebSocket;
-		try {
-			socket = new WebSocket(this.#url);
-		} catch (err) {
-			streamDeck.logger.warn("Failed to open Meld socket", err);
-			this.#scheduleReconnect();
-			return;
-		}
-		this.#socket = socket;
-
-		// Bound the whole connect→ready window, covering both the WebSocket upgrade
-		// and the QWebChannel handshake: a peer that accepts the socket but never
-		// finishes either would otherwise leave the plugin waiting on it forever,
-		// since `onclose` never fires on a socket nobody closes.
 		this.#handshakeTimer = setTimeout(() => {
 			this.#handshakeTimer = undefined;
-			// A completed handshake clears this timer before marking the connection
-			// ready, so reaching here means this attempt never got there. Only the
-			// generation matters: a newer attempt owns its own timer.
 			if (generation !== this.#generation) {
 				return;
 			}
@@ -214,43 +282,64 @@ export class MeldConnection {
 			this.#scheduleReconnect();
 		}, this.#handshakeTimeoutMs);
 
-		socket.onopen = (): void => {
-			if (generation !== this.#generation) {
-				return;
-			}
-			// eslint-disable-next-line no-new -- QWebChannel wires itself onto the transport.
-			new QWebChannel(socket, (channel: { objects: Record<string, MeldObject> }) => {
-				if (generation !== this.#generation) {
-					return;
-				}
-				this.#onChannelReady(channel.objects.meld);
+		try {
+			const channel = this.#openWebChannel(this.#url, {
+				ready: (meld): void => {
+					if (!this.#disposed && generation === this.#generation) {
+						try {
+							this.#onChannelReady(meld, generation);
+						} catch (err) {
+							// Readiness is normally asynchronous, outside the opener's try/catch.
+							// A malformed API result or failed observer registration must tear down
+							// this generation and retry rather than strand a half-ready connection.
+							if (!this.#disposed && generation === this.#generation) {
+								streamDeck.logger.warn("Failed to initialize Meld channel; retrying", err);
+								this.#teardownSocket();
+								this.#scheduleReconnect();
+							}
+						}
+					}
+				},
+				closed: (): void => {
+					if (generation !== this.#generation) {
+						return;
+					}
+					this.#teardownSocket();
+					this.#scheduleReconnect();
+				},
+				error: (): void => {
+					if (generation === this.#generation) {
+						streamDeck.logger.debug("Meld socket error");
+					}
+				},
 			});
-		};
-
-		socket.onclose = (): void => {
+			// Adapters normally settle asynchronously, but keeping assignment outside
+			// the call also makes a synchronous close/wrong-peer result safe: that
+			// result invalidates the generation, so its returned handle is closed rather
+			// than installed as the current attempt.
+			if (this.#disposed || generation !== this.#generation) {
+				channel.close();
+			} else {
+				this.#channel = channel;
+			}
+		} catch (err) {
+			// A synchronous callback may already have settled and invalidated this
+			// attempt before the adapter throws. Its path owns the retry in that case.
 			if (generation !== this.#generation) {
 				return;
 			}
-			// The peer closed first; the watchdog has nothing left to guard and would
-			// only fire a spurious timeout against this dead attempt.
-			if (this.#handshakeTimer) {
-				clearTimeout(this.#handshakeTimer);
-				this.#handshakeTimer = undefined;
-			}
-			this.#onDisconnected();
+			this.#teardownSocket();
+			streamDeck.logger.warn("Failed to open Meld socket", err);
 			this.#scheduleReconnect();
-		};
-
-		socket.onerror = (): void => {
-			// `onclose` always follows `onerror`; let it drive the reconnect so we
-			// don't double-schedule.
-			if (generation === this.#generation) {
-				streamDeck.logger.debug("Meld socket error");
-			}
-		};
+		}
 	}
 
-	#onChannelReady(meld: MeldObject | undefined): void {
+	#onChannelReady(meld: MeldObject | undefined, generation: number): void {
+		// A well-behaved adapter resolves once, but treating duplicate callbacks as
+		// no-ops keeps readiness, signal wiring, and observer registration exact-once.
+		if (this.#disposed || generation !== this.#generation || this.#ready || this.#meld) {
+			return;
+		}
 		if (!meld) {
 			// Wrong peer (a QWebChannel server without a `meld` object): retry with
 			// backoff rather than sitting on an open socket to it forever.
@@ -271,6 +360,9 @@ export class MeldConnection {
 		// socket and the reconnect path must not find a half-initialized "ready"
 		// connection.
 		meld.sessionChanged.connect(() => {
+			if (generation !== this.#generation || meld !== this.#meld) {
+				return;
+			}
 			// A session republish may be the tail of a restore that destroyed and
 			// rebuilt Meld's audio tracks, taking every observer registration with it
 			// while the socket stayed up. Forget what Meld is holding so the
@@ -278,45 +370,72 @@ export class MeldConnection {
 			this.#registered.clear();
 			this.#emitter.emit("sessionChanged", meld.session);
 		});
-		meld.isStreamingChanged.connect(() => this.#emitter.emit("streamingChanged", !!meld.isStreaming));
-		meld.isRecordingChanged.connect(() => this.#emitter.emit("recordingChanged", !!meld.isRecording));
+		meld.isStreamingChanged.connect(() => {
+			if (generation === this.#generation && meld === this.#meld) {
+				this.#emitter.emit("streamingChanged", !!meld.isStreaming);
+			}
+		});
+		meld.isRecordingChanged.connect(() => {
+			if (generation === this.#generation && meld === this.#meld) {
+				this.#emitter.emit("recordingChanged", !!meld.isRecording);
+			}
+		});
 		// Optional: part of the track-observer feature — a build without it must
 		// degrade to snapshot-only gain, not throw during the handshake.
-		meld.gainUpdated?.connect((trackId, gain, muted) =>
-			this.#emitter.emit("gainChanged", { trackId, gain, muted }),
-		);
-
-		this.#ready = true;
+		meld.gainUpdated?.connect((trackId, gain, muted) => {
+			if (generation === this.#generation && meld === this.#meld) {
+				this.#emitter.emit("gainChanged", { trackId, gain, muted });
+			}
+		});
 
 		// Re-register every active observer against the fresh `meld` object.
 		for (const [context, trackId] of this.#observers) {
 			meld.registerTrackObserver?.(context, trackId);
+			if (meld.registerTrackObserver) {
+				this.#registered.add(context);
+			}
 		}
 
 		// Only a fully completed handshake resets the backoff; a recurring throw
 		// above must keep growing the delay instead of hammering Meld every second.
 		this.#reconnectDelay = this.#reconnectMinMs;
+		this.#ready = true;
 
 		// Announce readiness, then push the initial authoritative state so listeners
 		// hydrate deterministically without racing the first signal.
 		this.#emitter.emit("ready");
+		if (!this.#isCurrentReady(meld, generation)) return;
 		this.#emitter.emit("sessionChanged", meld.session);
+		if (!this.#isCurrentReady(meld, generation)) return;
 		this.#emitter.emit("streamingChanged", !!meld.isStreaming);
+		if (!this.#isCurrentReady(meld, generation)) return;
 		this.#emitter.emit("recordingChanged", !!meld.isRecording);
+	}
+
+	/** Whether an initialization callback still owns the live, ready generation. */
+	#isCurrentReady(meld: MeldObject, generation: number): boolean {
+		return !this.#disposed && this.#ready && generation === this.#generation && meld === this.#meld;
 	}
 
 	#onDisconnected(): void {
 		if (!this.#ready && !this.#meld) {
 			return;
 		}
+		const wasReady = this.#ready;
 		this.#ready = false;
 		this.#meld = undefined;
 		this.#registered.clear();
-		this.#emitter.emit("closed");
+		// A failure while validating the API result never announced `ready`, so it
+		// must not manufacture an unmatched `closed` lifecycle event.
+		if (wasReady) {
+			this.#emitter.emit("closed");
+		}
 	}
 
 	#scheduleReconnect(): void {
-		if (this.#disposed || this.#reconnectTimer) {
+		// A `closed` listener is allowed to call connect() synchronously. If it did,
+		// do not leave the old close path's timer armed to replace the fresh attempt.
+		if (this.#disposed || this.#reconnectTimer || this.#channel || this.#handshakeTimer || this.#ready) {
 			return;
 		}
 		const delay = this.#reconnectDelay;
@@ -328,23 +447,21 @@ export class MeldConnection {
 	}
 
 	#teardownSocket(): void {
+		// Invalidate first so a close implementation that synchronously releases a
+		// queued callback cannot resurrect the attempt being torn down.
+		this.#generation++;
 		if (this.#handshakeTimer) {
 			clearTimeout(this.#handshakeTimer);
 			this.#handshakeTimer = undefined;
 		}
-		const socket = this.#socket;
-		if (!socket) {
-			return;
-		}
-		this.#socket = undefined;
-		socket.onopen = null;
-		socket.onclose = null;
-		socket.onerror = null;
-		socket.onmessage = null;
-		try {
-			socket.close();
-		} catch {
-			// ignore
+		const channel = this.#channel;
+		this.#channel = undefined;
+		if (channel) {
+			try {
+				channel.close();
+			} catch {
+				// ignore
+			}
 		}
 		// Detaching the handlers means `onclose` will never run for this socket, so
 		// the disconnect has to be recorded here or `ready`/`meld` would keep

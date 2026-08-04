@@ -49,6 +49,10 @@ export class Replay extends MeldAction<ReplaySettings> {
 		this.meld.on("closed", () => this.#trackGain.clear());
 	}
 
+	protected override migrateSettings(settings: ReplaySettings): ReplaySettings {
+		return settings.action == null ? { ...settings, action: "replay" } : settings;
+	}
+
 	/** @inheritdoc */
 	protected override onDisappear(context: string): void {
 		// The observer context is shared by every replay key, so release it only

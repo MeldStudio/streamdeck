@@ -76,13 +76,6 @@ export type Scenario = {
 	gains: Record<string, number>;
 	isStreaming: boolean;
 	isRecording: boolean;
-	/**
-	 * Each layer's effects in Meld's own model order — the order the user sees,
-	 * and the one a legacy `<layerId>-<index>` id indexes into. It is deliberately
-	 * separate from the snapshot, which Qt serializes sorted by id, so the two
-	 * orders can disagree here exactly as they do in production.
-	 */
-	effectOrder: Record<string, string[]>;
 };
 
 /**
@@ -104,14 +97,8 @@ export function itemId(seed: string): string {
 	return `${block("a")}${block("b")}${block("c")}${block("d")}`.toUpperCase();
 }
 
-/**
- * The id form the pre-migration inspector stored for an effect. Upgraded
- * profiles still carry it, and Meld still accepts it as a `toggleEffect`
- * argument, but it never appears as a key in the session snapshot.
- * @param layerId Owning layer id.
- * @param index The effect's position within that layer.
- */
-export function legacyEffectId(layerId: string, index: number): string {
+/** Historical settings form accepted only long enough to migrate to a stable effect id. */
+export function indexedEffectId(layerId: string, index: number): string {
 	return `${layerId}-${index}`;
 }
 
@@ -119,7 +106,6 @@ export function legacyEffectId(layerId: string, index: number): string {
 export class SessionBuilder {
 	readonly #items: Record<string, FakeItem> = {};
 	readonly #gains: Record<string, number> = {};
-	readonly #effectOrder: Record<string, string[]> = {};
 	readonly #namespace: string;
 	// Meld walks the horizontal and vertical scene models in separate loops, each
 	// numbering from 0, so a vertical twin can share an index with a horizontal
@@ -185,7 +171,9 @@ export class SessionBuilder {
 			type: "layer",
 			name,
 			parent,
-			index: options.index ?? Object.values(this.#items).filter((i) => i.type === "layer").length,
+			index:
+				options.index ??
+				Object.values(this.#items).filter((i) => i.type === "layer" && i.parent === parent).length,
 			visible,
 			isEffectivelyVisible: visible,
 			x: 0,
@@ -215,10 +203,8 @@ export class SessionBuilder {
 	/**
 	 * Adds an effect to a layer.
 	 *
-	 * Effects are always keyed by a real id, because that is all Meld publishes:
-	 * `effectsToMap` uses `effect->idString()`. The historical
-	 * `<layerId>-<index>` form exists only in old Stream Deck settings, which is
-	 * why Meld accepts it as a `toggleEffect` argument — see {@link legacyEffectId}.
+	 * Effects are keyed by the stable id published by
+	 * `effectsToMap(effect, map, effect->idString(), parent)`.
 	 * @param parent Owning layer id.
 	 * @param name Effect display name.
 	 * @param options `enabled` state.
@@ -226,8 +212,6 @@ export class SessionBuilder {
 	effect(parent: string, name: string, options: { enabled?: boolean } = {}): string {
 		const id = this.#id(`effect:${parent}:${name}`);
 		this.#items[id] = { type: "effect", name, parent, enabled: options.enabled ?? true };
-		// Creation order is the model order Meld indexes legacy ids against.
-		(this.#effectOrder[parent] ??= []).push(id);
 		return id;
 	}
 
@@ -271,7 +255,6 @@ export class SessionBuilder {
 			gains: { ...this.#gains },
 			isStreaming: flags.streaming ?? false,
 			isRecording: flags.recording ?? false,
-			effectOrder: structuredClone(this.#effectOrder),
 		};
 	}
 }

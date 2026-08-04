@@ -11,9 +11,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import { Replay } from "../src/actions/replay.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
-import { FakeMeld } from "../tools/fake-meld/server.ts";
-import { SessionBuilder } from "../tools/fake-meld/session.ts";
+import { SessionBuilder } from "./helpers/session-builder.ts";
 import { disappear, FakeActionInstance, keyEvent, press, mount, willAppear } from "./helpers/fake-stream-deck.ts";
+import { MockWebChannel, openMockWebChannel } from "./helpers/mock-web-channel.ts";
 
 type Settings = { action?: string };
 
@@ -43,7 +43,7 @@ function replayScenario(gain: number): { scenario: ReturnType<SessionBuilder["bu
 }
 
 describe("Replay", () => {
-	let server: FakeMeld;
+	let server: MockWebChannel;
 	let connection: MeldConnection;
 	let action: Replay;
 	let key: FakeActionInstance<Settings>;
@@ -53,9 +53,9 @@ describe("Replay", () => {
 	before(async () => {
 		const built = replayScenario(0.5);
 		trackId = built.trackId;
-		server = new FakeMeld(built.scenario);
+		server = new MockWebChannel(built.scenario);
 		port = await server.listen(0);
-		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
 				off();
@@ -73,7 +73,7 @@ describe("Replay", () => {
 
 	beforeEach(async () => {
 		server.setGain(trackId, 0.5);
-		server.invocations.length = 0;
+		server.resetCalls();
 		action = new Replay(connection);
 		key = new FakeActionInstance<Settings>("replay-key", { action: "volume_up" });
 		mount(action, [key]);
@@ -81,7 +81,7 @@ describe("Replay", () => {
 		// The action learns the gain from the observer registration round-trip. Wait
 		// for that to actually land rather than guessing a duration, so a slow
 		// machine cannot turn a passing test into a false failure.
-		await waitFor(() => server.callsTo("registerTrackObserver").length > 0);
+		await waitFor(() => server.methods.registerTrackObserver.mock.callCount() > 0);
 		await sleep(20);
 	});
 
@@ -94,9 +94,9 @@ describe("Replay", () => {
 	});
 
 	test("observes the replay track so its gain is known before any press", async () => {
-		const registrations = server.callsTo("registerTrackObserver");
+		const registrations = server.methods.registerTrackObserver.mock.calls;
 		assert.ok(registrations.length >= 1, "the replay track should be observed");
-		assert.equal(registrations.at(-1)?.args[1], trackId);
+		assert.equal(registrations.at(-1)?.arguments[1], trackId);
 	});
 
 	test("volume up raises the gain rather than slamming it to silence", async () => {
@@ -104,7 +104,7 @@ describe("Replay", () => {
 		await press(action, key, { action: "volume_up" });
 		await sleep(80);
 
-		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
+		const sent = server.methods.setGain.mock.calls.at(-1)?.arguments[1] as number;
 		assert.ok(sent !== undefined, "the press should reach Meld");
 		assert.ok(sent > before, `volume up should raise gain from ${before}, got ${sent}`);
 		// Stepping from an assumed 0 would land near the -60 dB floor.
@@ -115,9 +115,9 @@ describe("Replay", () => {
 		// The track is identified from the session, but its gain only arrives via
 		// the observer. In the window between the two there is no base to step from,
 		// and assuming 0 would send the clip to the -60 dB floor on the first press.
-		const slow = new FakeMeld(replayScenario(0.5).scenario, { echoDelayMs: 1_000 });
+		const slow = new MockWebChannel(replayScenario(0.5).scenario, { echoDelayMs: 1_000 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 
 		try {
 			const ready = new Promise<void>((resolve) => {
@@ -135,17 +135,17 @@ describe("Replay", () => {
 			await cold.onWillAppear(willAppear(instance, { action: "volume_up" }) as never);
 			await sleep(80); // rendered and observing, but the gain echo is still in flight
 
-			assert.ok(slow.callsTo("registerTrackObserver").length >= 1, "the track is identified and observed");
+			assert.ok(slow.methods.registerTrackObserver.mock.callCount() >= 1, "the track is identified and observed");
 			await cold.onKeyUp(keyEvent(instance, { action: "volume_up" }) as never);
 			await sleep(80);
 
-			assert.equal(slow.callsTo("setGain").length, 0, "with no known gain the press must not send one");
+			assert.equal(slow.methods.setGain.mock.callCount(), 0, "with no known gain the press must not send one");
 
 			// Once the gain lands the same press works normally.
 			await sleep(1_100);
 			await cold.onKeyUp(keyEvent(instance, { action: "volume_up" }) as never);
 			await sleep(80);
-			const sent = slow.callsTo("setGain").at(-1)?.args[1] as number;
+			const sent = slow.methods.setGain.mock.calls.at(-1)?.arguments[1] as number;
 			assert.ok(sent > 0.5, `expected a step up from 0.5 once known, got ${sent}`);
 		} finally {
 			slowConnection.dispose();
@@ -158,7 +158,7 @@ describe("Replay", () => {
 		await press(action, key, { action: "volume_down" });
 		await sleep(80);
 
-		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
+		const sent = server.methods.setGain.mock.calls.at(-1)?.arguments[1] as number;
 		assert.ok(sent < before, `volume down should lower gain from ${before}, got ${sent}`);
 		assert.ok(sent > 0, "one step down from mid-scale must not reach silence");
 	});
@@ -172,18 +172,18 @@ describe("Replay", () => {
 		await press(action, key, { action: "volume_up" });
 		await sleep(80);
 
-		const sent = server.callsTo("setGain").at(-1)?.args[1] as number;
+		const sent = server.methods.setGain.mock.calls.at(-1)?.arguments[1] as number;
 		assert.ok(sent > 0.2 && sent < 0.4, `expected a step up from 0.2, got ${sent}`);
 	});
 
 	test("mute and cue presses target the replay track", async () => {
 		await press(action, key, { action: "mute" });
 		await sleep(60);
-		assert.deepEqual(server.callsTo("setMuted").at(-1)?.args, [trackId, true]);
+		assert.deepEqual(server.methods.setMuted.mock.calls.at(-1)?.arguments, [trackId, true]);
 
 		await press(action, key, { action: "cue" });
 		await sleep(60);
-		assert.deepEqual(server.callsTo("setProperty").at(-1)?.args, [trackId, "monitoring", true]);
+		assert.deepEqual(server.methods.setProperty.mock.calls.at(-1)?.arguments, [trackId, "monitoring", true]);
 	});
 
 	test("keeps the observer while another replay key is still on screen", async () => {
@@ -194,13 +194,13 @@ describe("Replay", () => {
 		mount(action, [key, second]);
 		await action.onWillAppear(willAppear(second, { action: "mute" }) as never);
 		await sleep(40);
-		server.invocations.length = 0;
+		server.resetCalls();
 
 		await disappear(action, second);
 		await sleep(60);
 
 		assert.equal(
-			server.callsTo("unregisterTrackObserver").length,
+			server.methods.unregisterTrackObserver.mock.callCount(),
 			0,
 			"the observer must survive while a replay key remains",
 		);
@@ -210,12 +210,12 @@ describe("Replay", () => {
 	});
 
 	test("releases the track observer once the last replay key disappears", async () => {
-		server.invocations.length = 0;
+		server.resetCalls();
 		await disappear(action, key);
 		await sleep(60);
 
 		assert.equal(
-			server.callsTo("unregisterTrackObserver").length,
+			server.methods.unregisterTrackObserver.mock.callCount(),
 			1,
 			"the shared observer must be released when no replay key remains",
 		);

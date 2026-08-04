@@ -2,9 +2,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
 // The four "toggle a boolean session property" actions, driven end-to-end
-// against the fake Meld. These cover two rules that were each broken once:
+// against a result-level Meld mock. These cover two rules that were each broken once:
 // a press must never act on (or paint a state for) an item the current Meld
-// instance does not have, and a legacy profile holding a stale scene/layer
+// instance does not have, and an existing profile holding a stale scene/layer
 // chain must keep working, with the real parent chain derived from the session.
 
 import assert from "node:assert/strict";
@@ -15,9 +15,9 @@ import { ToggleEffect } from "../src/actions/toggle-effect.ts";
 import { ToggleLayer } from "../src/actions/toggle-layer.ts";
 import { ToggleMute } from "../src/actions/toggle-mute.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
-import { FakeMeld } from "../tools/fake-meld/server.ts";
-import { legacyEffectId, type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
+import { indexedEffectId, type Scenario, SessionBuilder } from "./helpers/session-builder.ts";
 import { FakeActionInstance, keyEvent, mount, press, retarget, willAppear } from "./helpers/fake-stream-deck.ts";
+import { MockWebChannel, openMockWebChannel } from "./helpers/mock-web-channel.ts";
 
 /** Two scenes, each with a layer; the first layer carries an effect. */
 function build(namespace: string): {
@@ -30,21 +30,23 @@ function build(namespace: string): {
 	const layerA = b.layer(sceneA, "Camera", { visible: true });
 	const layerB = b.layer(sceneB, "Slides", { visible: false });
 	const layerC = b.layer(sceneA, "Lower Third", { visible: false });
-	// Three effects, so a legacy `<layerId>-<index>` id genuinely has to pick the
-	// right one. Their ids sort into a different order than the model order, which
-	// is exactly the trap: resolving by snapshot order would choose another effect.
 	const effectA = b.effect(layerA, "Blur", { enabled: true });
-	const effectA2 = b.effect(layerA, "Sharpen", { enabled: true });
-	const effectA3 = b.effect(layerA, "Chroma Key", { enabled: true });
+	b.effect(layerA, "Sharpen", { enabled: true });
+	b.effect(layerA, "Chroma Key", { enabled: true });
 	const track = b.track("Microphone", { gain: 0.7, muted: false });
+	const scenario = b.build(namespace, "toggles");
+	const effectAtIndex1 = Object.entries(scenario.session.items)
+		.filter(([, item]) => item.type === "effect" && item.parent === layerA)
+		.at(1)?.[0];
+	assert.ok(effectAtIndex1, "the scenario must expose at least two stable effects");
 	return {
-		scenario: b.build(namespace, "toggles"),
-		ids: { sceneA, sceneB, layerA, layerB, layerC, effectA, effectA2, effectA3, track },
+		scenario,
+		ids: { sceneA, sceneB, layerA, layerB, layerC, effectA, effectAtIndex1, track },
 	};
 }
 
 describe("session toggles", () => {
-	let server: FakeMeld;
+	let server: MockWebChannel;
 	let connection: MeldConnection;
 	let ids: Record<string, string>;
 	let port = 0;
@@ -52,9 +54,9 @@ describe("session toggles", () => {
 	before(async () => {
 		const built = build("tog");
 		ids = built.ids;
-		server = new FakeMeld(built.scenario);
+		server = new MockWebChannel(built.scenario);
 		port = await server.listen(0);
-		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
 				off();
@@ -71,10 +73,10 @@ describe("session toggles", () => {
 	});
 
 	beforeEach(async () => {
-		// Presses mutate the fake's session, so reload a pristine copy (the builder
+		// Presses mutate the mock's session, so reload a pristine copy (the builder
 		// is deterministic, so the ids are unchanged) to keep tests independent.
 		server.loadScenario(build("tog").scenario);
-		server.invocations.length = 0;
+		server.resetCalls();
 		// Wait for the reloaded snapshot to actually reach the plugin: it rides the
 		// autosave debounce, so a shorter wait leaves each test reasoning from the
 		// previous one's state.
@@ -100,13 +102,46 @@ describe("session toggles", () => {
 		await press(action, key, { scene: ids.sceneA, layer: ids.layerA });
 		await sleep(120);
 
-		const calls = server.callsTo("toggleLayer");
+		const calls = server.methods.toggleLayer.mock.calls;
 		assert.equal(calls.length, 1);
-		assert.deepEqual(calls[0].args, [ids.sceneA, ids.layerA]);
+		assert.deepEqual(calls[0].arguments, [ids.sceneA, ids.layerA]);
 		assert.equal(key.state, 0, "the key should follow Meld's new visibility");
 	});
 
-	test("a legacy profile's stale scene still toggles the intended layer", async () => {
+	test("an unconfirmed toggle does not leak into a restarted Meld instance", async () => {
+		const settings = { scene: ids.sceneA, layer: ids.layerA };
+		const action = new ToggleLayer(connection);
+		const key = new FakeActionInstance("restart-key", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await press(action, key, settings);
+		await sleep(40);
+		assert.equal(key.state, 0, "the in-flight press is painted immediately");
+
+		const closed = new Promise<void>((resolve) => {
+			const off = connection.on("closed", () => {
+				off();
+				resolve();
+			});
+		});
+		await server.close();
+		await closed;
+
+		server = new MockWebChannel(build("tog").scenario);
+		const ready = new Promise<void>((resolve) => {
+			const off = connection.on("ready", () => {
+				off();
+				resolve();
+			});
+		});
+		await server.listen(port);
+		await ready;
+		await sleep(60);
+
+		assert.equal(key.state, 1, "the restarted instance's visible layer is authoritative");
+	});
+
+	test("an existing profile's stale scene still toggles the intended layer", async () => {
 		// The old inspector never cleared the layer when the scene dropdown changed,
 		// so upgraded profiles hold pairs like {scene: B, layer: <child of A>}. The
 		// layer id alone identifies the target, and Meld must receive the layer's
@@ -122,16 +157,16 @@ describe("session toggles", () => {
 		await press(action, key, settings);
 		await sleep(120);
 
-		const calls = server.callsTo("toggleLayer");
+		const calls = server.methods.toggleLayer.mock.calls;
 		assert.equal(calls.length, 1, "the press must reach Meld");
 		assert.deepEqual(
-			calls[0].args,
+				calls[0].arguments,
 			[ids.sceneA, ids.layerA],
 			"Meld must receive the layer's real parent scene, not the stale stored one",
 		);
 	});
 
-	test("a legacy profile's stale layer still toggles the intended effect", async () => {
+	test("an existing profile's stale layer still toggles the intended effect", async () => {
 		const settings = { scene: ids.sceneA, layer: ids.layerB, effect: ids.effectA };
 		const action = new ToggleEffect(connection);
 		const key = new FakeActionInstance("k", settings);
@@ -143,10 +178,10 @@ describe("session toggles", () => {
 		await press(action, key, settings);
 		await sleep(120);
 
-		const calls = server.callsTo("toggleEffect");
+		const calls = server.methods.toggleEffect.mock.calls;
 		assert.equal(calls.length, 1);
 		assert.deepEqual(
-			calls[0].args,
+				calls[0].arguments,
 			[ids.sceneA, ids.layerA, ids.effectA],
 			"the whole chain must be derived from the session",
 		);
@@ -167,7 +202,7 @@ describe("session toggles", () => {
 		await press(action, key, settings);
 		await sleep(120);
 
-		assert.equal(server.callsTo("toggleLayer").length, 0, "no command should reach Meld");
+		assert.equal(server.methods.toggleLayer.mock.callCount(), 0, "no command should reach Meld");
 		assert.deepEqual(key.states, [], "no state should be painted for a nonexistent item");
 	});
 
@@ -186,7 +221,7 @@ describe("session toggles", () => {
 		await press(action, key, settings);
 		await sleep(120);
 
-		assert.equal(server.callsTo("toggleLayer").length, 0, "forcing the state it is already in must not toggle");
+		assert.equal(server.methods.toggleLayer.mock.callCount(), 0, "forcing the state it is already in must not toggle");
 		assert.equal(
 			(server.session.items[ids.layerA] as { visible: boolean }).visible,
 			true,
@@ -208,7 +243,7 @@ describe("session toggles", () => {
 		await press(action, key, settings);
 		await sleep(120);
 
-		assert.equal(server.callsTo("toggleLayer").length, 1, "a differing state must toggle once");
+		assert.equal(server.methods.toggleLayer.mock.callCount(), 1, "a differing state must toggle once");
 		assert.equal((server.session.items[ids.layerB] as { visible: boolean }).visible, true);
 		assert.equal(key.state, 1);
 	});
@@ -224,12 +259,12 @@ describe("session toggles", () => {
 		// Forcing mute on an unmuted track sets it directly.
 		await press(action, key, present);
 		await sleep(120);
-		const direct = server.callsTo("setMuted").concat(server.callsTo("setProperty"));
-		assert.ok(direct.length >= 1, "force mode should use the direct setter");
+		const directCalls = server.methods.setMuted.mock.callCount() + server.methods.setProperty.mock.callCount();
+		assert.ok(directCalls >= 1, "force mode should use the direct setter");
 		assert.equal(key.state, 0, "state 0 is muted for this action");
 
 		// The same press against a track that does not exist must be inert.
-		server.invocations.length = 0;
+		server.resetCalls();
 		const ghost = { track: "NOSUCHTRACK", action: "mute" };
 		const ghostAction = new ToggleMute(connection);
 		const ghostKey = new FakeActionInstance("g", ghost);
@@ -240,49 +275,48 @@ describe("session toggles", () => {
 
 		ghostAction.onKeyUp(keyEvent(ghostKey, ghost) as never);
 		await sleep(120);
-		assert.equal(server.invocations.length, 0, "nothing should be sent for a missing track");
+		assert.equal(server.callCount, 0, "nothing should be sent for a missing track");
 		assert.deepEqual(ghostKey.states, [], "no state should be painted for a missing track");
 	});
 
-	test("an upgraded profile's <layerId>-<index> effect id toggles the right effect", async () => {
-		// Meld resolves this form against its own effects model — the order the user
-		// sees — which the snapshot does not expose (Qt serializes items sorted by
-		// id). Resolving the index here would therefore pick a different effect, so
-		// the id is forwarded verbatim and Meld does the lookup, as it did for the
-		// pre-migration plugin.
-		const settings = {
-			scene: ids.sceneA,
-			layer: ids.layerA,
-			// Index 0, not 1: the model order and the id-sorted snapshot order are a
-			// three-element reversal here, so index 1 is their fixed point and could
-			// not tell the two apart.
-			effect: legacyEffectId(ids.layerA, 0),
-		};
+	test("an indexed effect setting migrates and dispatches the stable mapper id", async () => {
+		const settings = { scene: ids.sceneB, layer: ids.layerB, effect: indexedEffectId(ids.layerA, 1) };
 		const action = new ToggleEffect(connection);
-		const key = new FakeActionInstance("k", settings);
+		const key = new FakeActionInstance("indexed-effect", settings);
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(40);
 
+		assert.deepEqual(key.settingsWrites, [
+			{ scene: ids.sceneA, layer: ids.layerA, effect: ids.effectAtIndex1, action: "toggle" },
+		]);
+		assert.equal(key.state, 1, "the indexed setting should render from the resolved stable effect");
+
+		// Exercise a press carrying the pre-migration payload: Stream Deck can echo
+		// setSettings after the user has already pressed the key.
 		await press(action, key, settings);
 		await sleep(120);
 
-		const calls = server.callsTo("toggleEffect");
-		assert.equal(calls.length, 1, "the press must reach Meld");
-		assert.deepEqual(
-			calls[0].args,
-			[ids.sceneA, ids.layerA, legacyEffectId(ids.layerA, 0)],
-			"the legacy id must be forwarded untouched for Meld to resolve",
-		);
-		// Index 0 in model order is "Blur"; in id-sorted snapshot order it would be
-		// "Chroma Key", so only one of the two can be right.
-		assert.equal(
-			(server.session.items[ids.effectA] as { enabled: boolean }).enabled,
-			false,
-			"the effect at that model index must be the one that toggled",
-		);
-		assert.equal((server.session.items[ids.effectA2] as { enabled: boolean }).enabled, true);
-		assert.equal((server.session.items[ids.effectA3] as { enabled: boolean }).enabled, true);
+		assert.deepEqual(server.methods.toggleEffect.mock.calls[0].arguments, [
+			ids.sceneA,
+			ids.layerA,
+			ids.effectAtIndex1,
+		]);
+		assert.equal(key.state, 0);
+	});
+
+	test("an unresolvable effect id is inert", async () => {
+		const settings = { scene: ids.sceneA, layer: ids.layerA, effect: "NOT-A-MAPPER-ID" };
+		const action = new ToggleEffect(connection);
+		const key = new FakeActionInstance("missing-effect", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		key.reset();
+
+		await press(action, key, settings);
+
+		assert.equal(server.methods.toggleEffect.mock.callCount(), 0);
+		assert.deepEqual(key.states, [], "an unknown effect must not paint an optimistic result");
 	});
 
 	test("pressing 'show' twice inside Meld's debounce does not hide the layer", async () => {
@@ -389,7 +423,7 @@ describe("session toggles", () => {
 		await sleep(60);
 
 		assert.equal(key.state, 0, "the key must show the new layer's own state, not the old pending one");
-		server.invocations.length = 0;
+		server.resetCalls();
 
 		await press(action, key, second);
 		await sleep(800);
@@ -410,6 +444,6 @@ describe("session toggles", () => {
 		await press(action, key, {});
 		await sleep(120);
 		assert.deepEqual(key.states, []);
-		assert.equal(server.callsTo("toggleLayer").length, 0);
+		assert.equal(server.methods.toggleLayer.mock.callCount(), 0);
 	});
 });

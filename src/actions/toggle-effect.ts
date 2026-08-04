@@ -3,7 +3,7 @@
 
 import { action } from "@elgato/streamdeck";
 
-import type { IdentifiedItem, LayerItem, MeldSession } from "../meld/index.js";
+import type { MeldSession } from "../meld/index.js";
 import { SessionToggleAction } from "./session-toggle.js";
 
 /** Settings for {@link ToggleEffect}. */
@@ -25,70 +25,81 @@ export class ToggleEffect extends SessionToggleAction<ToggleEffectSettings> {
 	}
 
 	protected isConfigured(settings: ToggleEffectSettings): boolean {
-		return !!settings.scene && !!settings.layer && !!settings.effect;
+		// StreamDeckMapper publishes stable effect ids. Parent fields can be
+		// reconstructed from the effect in the live session.
+		return !!settings.effect;
 	}
 
 	protected mode(settings: ToggleEffectSettings): string | undefined {
 		return settings.action;
 	}
 
+	protected override migrateSettings(settings: ToggleEffectSettings, session: MeldSession): ToggleEffectSettings {
+		let migrated = super.migrateSettings(settings, session);
+		const effect = this.#resolveEffect(migrated, session);
+		const layerId = effect?.parent;
+		const sceneId = session.getLayer(layerId)?.parent;
+		if (
+			effect &&
+			layerId &&
+			sceneId &&
+			(migrated.effect !== effect.id || migrated.layer !== layerId || migrated.scene !== sceneId)
+		) {
+			migrated = { ...migrated, scene: sceneId, layer: layerId, effect: effect.id };
+		}
+		return migrated;
+	}
+
 	protected currentValue(settings: ToggleEffectSettings, session: MeldSession): boolean | null {
-		// The effect id alone identifies the target. Legacy profiles can hold a
-		// scene/layer from previous selections alongside it; the effect must keep
-		// working across the upgrade, so the stored chain is not required to match.
-		const effect = session.getEffect(settings.effect);
+		// The stable effect id alone identifies the target. A stale scene/layer from
+		// previous selections must not hide its authoritative state.
+		const effect = this.#resolveEffect(settings, session);
 		return effect ? effect.enabled : null;
 	}
 
-	/**
-	 * A legacy id names an effect by its position in Meld's own effects model, an
-	 * order the session snapshot does not carry, so the press has to go ahead
-	 * without knowing the effect's current state.
-	 */
-	protected override actsWithUnknownState(settings: ToggleEffectSettings): boolean {
-		return this.#legacyLayer(settings) !== undefined;
-	}
-
 	protected toggle(settings: ToggleEffectSettings): void {
-		if (!settings.scene || !settings.layer || !settings.effect) {
+		if (!settings.effect) {
 			return;
 		}
 		const session = this.session();
-		const effect = session.getEffect(settings.effect);
+		const effect = this.#resolveEffect(settings, session);
 		if (!effect) {
-			// A legacy `<layerId>-<index>` id. Meld resolves it against its effects
-			// model — the order the user sees — which the snapshot does not expose,
-			// so resolving it here would pick a different effect. Pass it through
-			// verbatim with the stored chain, exactly as the pre-migration plugin
-			// did, and let Meld apply its own fallback.
-			this.meld.meld?.toggleEffect?.(settings.scene, settings.layer, settings.effect);
+			// Never forward an id absent from the current mapper snapshot. It belongs
+			// to another project/process and Meld would silently discard it.
 			return;
 		}
 		// The session's real parent chain is authoritative, so Meld is never sent
 		// a mismatched triple even for stale stored scene/layer ids.
 		const layerId = effect.parent;
 		const sceneId = session.getLayer(layerId)?.parent ?? settings.scene;
-		this.meld.meld?.toggleEffect?.(sceneId, layerId, effect.id);
+		if (sceneId) {
+			this.meld.meld?.toggleEffect?.(sceneId, layerId, effect.id);
+		}
 	}
 
 	/**
-	 * The layer a legacy `<layerId>-<index>` id refers to, when the stored effect
-	 * id is in that historical form and the layer still exists.
-	 *
-	 * Before effects had stable ids the inspector stored them this way, and
-	 * upgraded profiles still do. Meld never publishes the form in the snapshot —
-	 * it only accepts it as a `toggleEffect` argument.
-	 * @param settings The action's settings.
+	 * Resolves either a stable mapper id or the historical `<layerId>-<index>`
+	 * settings form. Indexed settings are immediately migrated to the stable id;
+	 * commands are never sent to Meld with the indexed form. The one-time indexed
+	 * lookup intentionally uses the currently serialized effect order: old indexes
+	 * were never stable across reorders, but resolving the present index is the
+	 * required upgrade behavior before persisting the resulting mapper id.
 	 */
-	#legacyLayer(settings: ToggleEffectSettings): IdentifiedItem<LayerItem> | undefined {
-		const session = this.session();
-		if (!settings.effect || session.getEffect(settings.effect)) {
+	#resolveEffect(settings: ToggleEffectSettings, session: MeldSession) {
+		const direct = session.getEffect(settings.effect);
+		if (direct || !settings.effect) {
+			return direct;
+		}
+
+		const separator = settings.effect.lastIndexOf("-");
+		if (separator <= 0) {
 			return undefined;
 		}
-		const parts = settings.effect.split("-");
-		if (parts.length !== 2 || !/^\d+$/.test(parts[1])) {
+		const layerId = settings.effect.slice(0, separator);
+		const indexText = settings.effect.slice(separator + 1);
+		if (!/^\d+$/.test(indexText) || !session.getLayer(layerId)) {
 			return undefined;
 		}
-		return session.getLayer(parts[0]);
+		return session.effects(layerId)[Number.parseInt(indexText, 10)];
 	}
 }

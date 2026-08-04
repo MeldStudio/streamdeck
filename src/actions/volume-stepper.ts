@@ -108,6 +108,17 @@ export class VolumeStepper extends MeldAction<VolumeStepperSettings> {
 		});
 	}
 
+	protected override migrateSettings(settings: VolumeStepperSettings): VolumeStepperSettings {
+		if (settings.stepsize != null && settings.metertype != null) {
+			return settings;
+		}
+		return {
+			...settings,
+			stepsize: settings.stepsize ?? "1",
+			metertype: settings.metertype ?? "db",
+		};
+	}
+
 	/** @inheritdoc */
 	override onDialRotate(ev: DialRotateEvent<VolumeStepperSettings>): void {
 		const { track, stepsize, metertype } = ev.payload.settings;

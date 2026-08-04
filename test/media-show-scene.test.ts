@@ -12,9 +12,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { Media } from "../src/actions/media.ts";
 import { ShowScene } from "../src/actions/show-scene.ts";
 import { MeldConnection } from "../src/meld/connection.ts";
-import { FakeMeld } from "../tools/fake-meld/server.ts";
-import { type Scenario, SessionBuilder } from "../tools/fake-meld/session.ts";
+import { type Scenario, SessionBuilder } from "./helpers/session-builder.ts";
 import { FakeActionInstance, keyEvent, mount, press, retarget, willAppear } from "./helpers/fake-stream-deck.ts";
+import { MockWebChannel, openMockWebChannel } from "./helpers/mock-web-channel.ts";
 
 /** A scene with a playing media layer. */
 function build(): { scenario: Scenario; ids: Record<string, string> } {
@@ -29,7 +29,7 @@ function build(): { scenario: Scenario; ids: Record<string, string> } {
 }
 
 describe("Media and ShowScene", () => {
-	let server: FakeMeld;
+	let server: MockWebChannel;
 	let connection: MeldConnection;
 	let ids: Record<string, string>;
 	let port = 0;
@@ -37,9 +37,9 @@ describe("Media and ShowScene", () => {
 	before(async () => {
 		const built = build();
 		ids = built.ids;
-		server = new FakeMeld(built.scenario);
+		server = new MockWebChannel(built.scenario);
 		port = await server.listen(0);
-		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100 });
+		connection = new MeldConnection({ port, handshakeTimeoutMs: 300, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
 				off();
@@ -57,7 +57,7 @@ describe("Media and ShowScene", () => {
 
 	beforeEach(async () => {
 		server.loadScenario(build().scenario);
-		server.invocations.length = 0;
+		server.resetCalls();
 		await sleep(40);
 	});
 
@@ -104,9 +104,9 @@ describe("Media and ShowScene", () => {
 		// `isPlaying` only refreshes when Meld republishes the session, behind its
 		// autosave debounce. A second press in that window must act on the pending
 		// intent, not re-read the pre-press snapshot and send the same command.
-		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slow = new MockWebChannel(build().scenario, { sessionDebounceMs: 600 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const slowIds = build().ids;
 
 		try {
@@ -125,14 +125,14 @@ describe("Media and ShowScene", () => {
 			mount(action, [key]);
 			await action.onWillAppear(willAppear(key, settings) as never);
 			await sleep(60);
-			slow.invocations.length = 0;
+			slow.resetCalls();
 
 			await press(action, key, settings); // playing -> pause
 			await sleep(120);
 			await press(action, key, settings); // still inside the debounce
 			await sleep(120);
 
-			const members = slow.callsTo("callFunction").map((c) => c.args[1]);
+			const members = slow.methods.callFunction.mock.calls.map((call) => call.arguments[1]);
 			assert.deepEqual(members, ["pause", "play"], "the second press must resume, not pause again");
 			assert.ok(key.image?.includes("pause"), "and the key shows the playing state it asked for");
 		} finally {
@@ -145,9 +145,9 @@ describe("Media and ShowScene", () => {
 		// The inspector can retarget a key seconds after a press, while the first
 		// clip's confirmation is still outstanding. Carrying that pending value over
 		// would show the inverse of the new clip's state and send the wrong command.
-		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slow = new MockWebChannel(build().scenario, { sessionDebounceMs: 600 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const slowIds = build().ids;
 
 		try {
@@ -169,7 +169,7 @@ describe("Media and ShowScene", () => {
 
 			await press(action, key, first); // clip -> paused (pending, unconfirmed)
 			await sleep(60);
-			slow.invocations.length = 0;
+			slow.resetCalls();
 
 			// Retarget to the second media layer, which is playing.
 			const second = { scene: slowIds.scene, layer: slowIds.clipB, action: "toggle" };
@@ -180,7 +180,7 @@ describe("Media and ShowScene", () => {
 			await press(action, key, second);
 			await sleep(80);
 			assert.deepEqual(
-				slow.callsTo("callFunction").at(-1)?.args,
+				slow.methods.callFunction.mock.calls.at(-1)?.arguments,
 				[slowIds.clipB, "pause"],
 				"the press must act on the new layer's real state",
 			);
@@ -193,9 +193,9 @@ describe("Media and ShowScene", () => {
 	test("a media press holds its icon across a retriggered autosave", async () => {
 		// The optimistic TTL has to outlast Meld's retriggerable debounce, or the
 		// key flips back to the pre-press icon and then forward again.
-		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slow = new MockWebChannel(build().scenario, { sessionDebounceMs: 600 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const slowIds = build().ids;
 
 		try {
@@ -245,8 +245,8 @@ describe("Media and ShowScene", () => {
 		await sleep(80);
 
 		// seekTo(0) would jump outside a trimmed clip's configured region.
-		assert.deepEqual(server.callsTo("callFunction").at(-1)?.args, [ids.clip, "skipBack"]);
-		assert.equal(server.callsTo("callFunctionWithArgs").length, 0);
+		assert.deepEqual(server.methods.callFunction.mock.calls.at(-1)?.arguments, [ids.clip, "skipBack"]);
+		assert.equal(server.methods.callFunctionWithArgs.mock.callCount(), 0);
 	});
 
 	test("a stale stored scene does not make the media key inert", async () => {
@@ -264,7 +264,7 @@ describe("Media and ShowScene", () => {
 
 		await press(action, key, settings);
 		await sleep(150);
-		assert.deepEqual(server.callsTo("callFunction").at(-1)?.args, [ids.clip, "pause"]);
+		assert.deepEqual(server.methods.callFunction.mock.calls.at(-1)?.arguments, [ids.clip, "pause"]);
 	});
 
 	test("the media key holds its icon through a connection blip", async () => {
@@ -290,7 +290,7 @@ describe("Media and ShowScene", () => {
 
 		assert.deepEqual(key.images, [], "a disconnect must not repaint the media key");
 
-		server = new FakeMeld(build().scenario);
+		server = new MockWebChannel(build().scenario);
 		const ready = new Promise<void>((resolve) => {
 			const off = connection.on("ready", () => {
 				off();
@@ -301,6 +301,39 @@ describe("Media and ShowScene", () => {
 		await ready;
 		await sleep(60);
 		assert.equal(key.image ?? before, before, "the icon should be unchanged after reconnect");
+	});
+
+	test("an unconfirmed media command does not leak into a restarted Meld instance", async () => {
+		const settings = { scene: ids.scene, layer: ids.clip, action: "toggle" };
+		const action = new Media(connection);
+		const key = new FakeActionInstance("media-restart", settings);
+		mount(action, [key]);
+		await action.onWillAppear(willAppear(key, settings) as never);
+		await press(action, key, settings);
+		await sleep(40);
+		assert.ok(key.image?.includes("play"), "the in-flight pause is painted immediately");
+
+		const closed = new Promise<void>((resolve) => {
+			const off = connection.on("closed", () => {
+				off();
+				resolve();
+			});
+		});
+		await server.close();
+		await closed;
+
+		server = new MockWebChannel(build().scenario);
+		const ready = new Promise<void>((resolve) => {
+			const off = connection.on("ready", () => {
+				off();
+				resolve();
+			});
+		});
+		await server.listen(port);
+		await ready;
+		await sleep(60);
+
+		assert.ok(key.image?.includes("pause"), "the restarted instance's playing clip is authoritative");
 	});
 
 	test("a show-scene key lights only once Meld confirms the scene", async () => {
@@ -314,7 +347,7 @@ describe("Media and ShowScene", () => {
 		await press(action, key, { scene: ids.other });
 		await sleep(120);
 
-		assert.equal(server.callsTo("showScene").length, 1);
+		assert.equal(server.methods.showScene.mock.callCount(), 1);
 		assert.equal(key.state, 1, "the key lights for the scene that actually went live");
 		assert.equal((server.session.items[ids.other] as { current: boolean }).current, true);
 	});
@@ -324,9 +357,9 @@ describe("Media and ShowScene", () => {
 		// and that rides Meld's retriggerable ~600ms autosave — far slower than a
 		// gain echo. The key must hold its optimistic light across that gap instead
 		// of blinking dark and back.
-		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slow = new MockWebChannel(build().scenario, { sessionDebounceMs: 600 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const slowIds = build().ids;
 
 		try {
@@ -389,9 +422,9 @@ describe("Media and ShowScene", () => {
 		// Each key waits on its own confirmation. If an expiry repainted every key,
 		// the first key's timeout would clear a second key's still-valid request and
 		// repaint it from the pre-press snapshot.
-		const slow = new FakeMeld(build().scenario, { sessionDebounceMs: 600 });
+		const slow = new MockWebChannel(build().scenario, { sessionDebounceMs: 600 });
 		const slowPort = await slow.listen(0);
-		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100 });
+		const slowConnection = new MeldConnection({ port: slowPort, reconnectMinMs: 100, openWebChannel: openMockWebChannel });
 		const slowIds = build().ids;
 
 		try {
@@ -458,7 +491,7 @@ describe("Media and ShowScene", () => {
 		await press(action, key, { scene: "GONESCENE" });
 		await sleep(120);
 
-		assert.equal(server.callsTo("showScene").length, 0, "no command should reach Meld");
+		assert.equal(server.methods.showScene.mock.callCount(), 0, "no command should reach Meld");
 		assert.deepEqual(key.states, [], "the key must not light for a scene that does not exist");
 	});
 });

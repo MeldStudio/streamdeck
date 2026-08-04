@@ -24,11 +24,22 @@ export class ToggleLayer extends SessionToggleAction<ToggleLayerSettings> {
 	}
 
 	protected isConfigured(settings: ToggleLayerSettings): boolean {
-		return !!settings.scene && !!settings.layer;
+		// The layer id is the durable target. Its parent can be reconstructed from
+		// the session when an old inspector left the stored chain incomplete.
+		return !!settings.layer;
 	}
 
 	protected mode(settings: ToggleLayerSettings): string | undefined {
 		return settings.action;
+	}
+
+	protected override migrateSettings(settings: ToggleLayerSettings, session: MeldSession): ToggleLayerSettings {
+		let migrated = super.migrateSettings(settings, session);
+		const layer = session.getLayer(migrated.layer);
+		if (layer && migrated.scene !== layer.parent) {
+			migrated = { ...migrated, scene: layer.parent };
+		}
+		return migrated;
 	}
 
 	protected currentValue(settings: ToggleLayerSettings, session: MeldSession): boolean | null {
@@ -40,12 +51,15 @@ export class ToggleLayer extends SessionToggleAction<ToggleLayerSettings> {
 	}
 
 	protected toggle(settings: ToggleLayerSettings): void {
-		if (!settings.scene || !settings.layer) {
+		if (!settings.layer) {
 			return;
 		}
 		// The layer's real parent from the session is authoritative, so Meld is
 		// never sent a mismatched scene/layer pair even for stale stored scenes.
 		const layer: IdentifiedItem<LayerItem> | undefined = this.session().getLayer(settings.layer);
-		this.meld.meld?.toggleLayer?.(layer?.parent ?? settings.scene, settings.layer);
+		const sceneId = layer?.parent ?? settings.scene;
+		if (sceneId) {
+			this.meld.meld?.toggleLayer?.(sceneId, settings.layer);
+		}
 	}
 }

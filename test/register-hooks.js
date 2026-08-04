@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Meld Studio, Inc.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
-// Lets the tests import `src/` and `tools/` directly.
+// Lets the tests import TypeScript source directly.
 //
 // Two hooks are needed. `resolve` maps the ESM-correct `.js` specifiers the
 // source uses (and the bundler expects) onto the `.ts` files that actually

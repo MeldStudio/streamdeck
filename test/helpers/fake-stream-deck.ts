@@ -6,8 +6,8 @@
 // to a real action so its render lifecycle can be driven directly.
 //
 // This deliberately fakes only what MeldAction touches. Everything below the
-// action — the Meld connection, QWebChannel, the session — is the real code
-// running against the fake Meld in tools/fake-meld.
+// action — the Meld connection and session handling — is real code driven by a
+// result-level WebChannel fixture shaped like WebChannelAPI.md.
 
 import type { JsonObject } from "@elgato/utils";
 
@@ -35,6 +35,8 @@ export class FakeActionInstance<T extends JsonObject = JsonObject> {
 	readonly images: (string | undefined)[] = [];
 	/** Every dial feedback pushed, in order. */
 	readonly feedbacks: Feedback[] = [];
+	/** Every settings migration persisted through the SDK action instance. */
+	readonly settingsWrites: T[] = [];
 
 	#settings: T;
 
@@ -68,6 +70,12 @@ export class FakeActionInstance<T extends JsonObject = JsonObject> {
 	/** @returns The instance's current settings, as the SDK would. */
 	async getSettings<U extends JsonObject = T>(): Promise<U> {
 		return this.#settings as unknown as U;
+	}
+
+	/** Records and applies a settings write, as Stream Deck would. */
+	async setSettings<U extends JsonObject = T>(settings: U): Promise<void> {
+		this.#settings = settings as unknown as T;
+		this.settingsWrites.push(structuredClone(this.#settings));
 	}
 
 	/** Records a key state push. */

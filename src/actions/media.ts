@@ -3,7 +3,7 @@
 
 import { action, type KeyUpEvent } from "@elgato/streamdeck";
 
-import type { IdentifiedItem, LayerItem, MeldSession } from "../meld/index.js";
+import type { IdentifiedItem, LayerItem, MeldConnection, MeldSession } from "../meld/index.js";
 import { MeldAction, type RenderArgs } from "./base.js";
 import { OptimisticStore } from "./optimistic.js";
 
@@ -37,6 +37,22 @@ export class Media extends MeldAction<MediaSettings> {
 	readonly #optimisticPlaying = new OptimisticStore<boolean>(MEDIA_CONFIRM_TTL_MS, () =>
 		void this.renderAll("sessionChanged"),
 	);
+
+	constructor(connection?: MeldConnection) {
+		super(connection);
+		// Keep the last icon painted during the outage, but do not let an
+		// unconfirmed command from the stopped process override the next instance.
+		this.meld.on("closed", () => this.#optimisticPlaying.clearAll());
+	}
+
+	protected override migrateSettings(settings: MediaSettings, session: MeldSession): MediaSettings {
+		let migrated = settings.action == null ? { ...settings, action: "toggle" } : settings;
+		const layer = session.getLayer(migrated.layer);
+		if (layer && migrated.scene !== layer.parent) {
+			migrated = { ...migrated, scene: layer.parent };
+		}
+		return migrated;
+	}
 
 	/** Reflects the media layer's playback state on the key. */
 	protected async render({ action, settings, session, reason }: RenderArgs<MediaSettings>): Promise<void> {
@@ -148,8 +164,8 @@ export class Media extends MeldAction<MediaSettings> {
 	 * @param session The session to resolve against.
 	 */
 	#findMediaLayer(settings: MediaSettings, session: MeldSession): IdentifiedItem<LayerItem> | undefined {
-		const { scene, layer } = settings;
-		if (!scene || !layer) {
+		const { layer } = settings;
+		if (!layer) {
 			return undefined;
 		}
 		const item = session.getLayer(layer);

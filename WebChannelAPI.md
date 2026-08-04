@@ -503,7 +503,7 @@ _Side Effects_: Once streaming starts, the `channel`'s `isStreaming` property wi
 meld.toggleStream();
 ```
 
-#### **`registerTrackObserver(trackId: string, context: string)`**
+#### **`registerTrackObserver(context: string, trackId: string)`**
 
 Registers an observer for changes to a specific track.
 
@@ -519,7 +519,7 @@ const trackId = /* desired track id */;
 meld.registerTrackObserver("documentation-context", trackId);
 ```
 
-#### **`unregisterTrackObserver(trackId: string, context: string)`**
+#### **`unregisterTrackObserver(context: string, trackId: string)`**
 
 Unregisters an observer for a specific track.
 

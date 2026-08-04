@@ -58,6 +58,10 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 
 	/** Latest known settings per visible context id. */
 	readonly #settings = new Map<string, T>();
+	/** Contexts whose last migration write failed and must be retried. */
+	readonly #settingsPersistenceRetry = new Set<string>();
+	/** Canonical settings writes currently being sent, keyed by visible context. */
+	readonly #settingsPersistenceInFlight = new Map<string, { settings: T; promise: Promise<void> }>();
 
 	/** Last state/image pushed per context, used to suppress redundant messages. */
 	readonly #lastState = new Map<string, number>();
@@ -116,13 +120,26 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 	 */
 	protected onSettingsChanged?(args: RenderArgs<T> & { previous: T | undefined }): void | Promise<void>;
 
+	/**
+	 * Returns the canonical persisted form of an action's settings.
+	 *
+	 * Migrations run both when Stream Deck supplies settings and on connection
+	 * updates, because parent ids can only be repaired once the corresponding Meld
+	 * session is available. Implementations must preserve fields they do not own.
+	 * The base class persists a changed result and suppresses identical rewrites.
+	 */
+	protected migrateSettings(settings: T, _session: MeldSession): T {
+		return settings;
+	}
+
 	/** @inheritdoc */
 	override async onWillAppear(ev: WillAppearEvent<T>): Promise<void> {
-		this.#settings.set(ev.action.id, ev.payload.settings);
+		const session = this.session();
+		const settings = await this.#migrateAndPersist(ev.action, ev.payload.settings, session);
 		const args: RenderArgs<T> = {
 			action: ev.action,
-			settings: ev.payload.settings,
-			session: this.session(),
+			settings,
+			session,
 			reason: "willAppear",
 		};
 		await this.onAppear?.(args);
@@ -133,6 +150,7 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 	override async onWillDisappear(ev: WillDisappearEvent<T>): Promise<void> {
 		const settings = this.#settings.get(ev.action.id);
 		this.#settings.delete(ev.action.id);
+		this.#settingsPersistenceRetry.delete(ev.action.id);
 		this.#lastState.delete(ev.action.id);
 		this.#lastImage.delete(ev.action.id);
 		await this.onDisappear?.(ev.action.id, settings);
@@ -151,11 +169,12 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 	/** @inheritdoc */
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<T>): Promise<void> {
 		const previous = this.#settings.get(ev.action.id);
-		this.#settings.set(ev.action.id, ev.payload.settings);
+		const session = this.session();
+		const settings = await this.#migrateAndPersist(ev.action, ev.payload.settings, session);
 		const args: RenderArgs<T> = {
 			action: ev.action,
-			settings: ev.payload.settings,
-			session: this.session(),
+			settings,
+			session,
 			reason: "didReceiveSettings",
 		};
 		await this.onSettingsChanged?.({ ...args, previous });
@@ -186,13 +205,87 @@ export abstract class MeldAction<T extends JsonObject = JsonObject> extends Sing
 				let settings = this.#settings.get(action.id);
 				if (settings === undefined) {
 					settings = await action.getSettings<T>();
-					this.#settings.set(action.id, settings);
 				}
+				settings = await this.#migrateAndPersist(action, settings, session);
 				await this.render({ action, settings, session, reason });
 			} catch (err) {
 				streamDeck.logger.error(`Failed to render ${action.id} (${reason})`, err);
 			}
 		}
+	}
+
+	/** Migrates, caches, and (only when changed) persists one settings object. */
+	async #migrateAndPersist(action: MeldActionInstance<T>, settings: T, session: MeldSession): Promise<T> {
+		const migrated = this.migrateSettings(settings, session);
+		// Claim the canonical cache entry before the write. A ready/sessionChanged
+		// pair can render concurrently; the second pass then sees the migrated value
+		// and cannot issue a duplicate setSettings command.
+		this.#settings.set(action.id, migrated);
+		if (!this.#sameSettings(settings, migrated) || this.#settingsPersistenceRetry.has(action.id)) {
+			// Lifecycle callbacks can overlap before Stream Deck echoes a setSettings
+			// write. Join an identical write, and serialize a genuinely newer one.
+			while (true) {
+				const pending = this.#settingsPersistenceInFlight.get(action.id);
+				if (!pending) {
+					break;
+				}
+				if (this.#sameSettings(pending.settings, migrated)) {
+					await pending.promise;
+					return migrated;
+				}
+				await pending.promise;
+			}
+
+			this.#settingsPersistenceRetry.delete(action.id);
+			let entry: { settings: T; promise: Promise<void> };
+			const promise = Promise.resolve()
+				.then(() => action.setSettings(migrated))
+				.catch((err: unknown) => {
+					this.#settingsPersistenceRetry.add(action.id);
+					streamDeck.logger.error(`Failed to persist migrated settings for ${action.id}`, err);
+				})
+				.finally(() => {
+					if (this.#settingsPersistenceInFlight.get(action.id) === entry) {
+						this.#settingsPersistenceInFlight.delete(action.id);
+					}
+				});
+			entry = { settings: migrated, promise };
+			this.#settingsPersistenceInFlight.set(action.id, entry);
+			await promise;
+		}
+		return migrated;
+	}
+
+	/** Structural JSON equality, including forward-compatible fields this plugin does not own. */
+	#sameSettings(left: T, right: T): boolean {
+		return this.#sameJsonValue(left, right);
+	}
+
+	#sameJsonValue(left: unknown, right: unknown): boolean {
+		if (left === right) {
+			return true;
+		}
+		if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+			return false;
+		}
+		if (Array.isArray(left) || Array.isArray(right)) {
+			return (
+				Array.isArray(left) &&
+				Array.isArray(right) &&
+				left.length === right.length &&
+				left.every((value, index) => this.#sameJsonValue(value, right[index]))
+			);
+		}
+		const leftObject = left as Record<string, unknown>;
+		const rightObject = right as Record<string, unknown>;
+		const leftKeys = Object.keys(leftObject);
+		const rightKeys = Object.keys(rightObject);
+		return (
+			leftKeys.length === rightKeys.length &&
+			leftKeys.every(
+				(key) => Object.hasOwn(rightObject, key) && this.#sameJsonValue(leftObject[key], rightObject[key]),
+			)
+		);
 	}
 
 	/**

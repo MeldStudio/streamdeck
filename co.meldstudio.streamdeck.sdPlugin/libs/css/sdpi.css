@@ -1706,10 +1706,20 @@ input[type="range"].colortemperature::-webkit-slider-thumb {
 /* adding some styles here that override sdpi things so we can use this as notes for sdpi updates*/
 select {
     min-width: 0px;
-
-    /* this is a clunky fix for using background image as select arrow with long text options */
-    -webkit-appearance: media-slider;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url(../assets/caret.svg);
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    background-size: 12px 6px;
+    padding-right: 24px !important;
     text-overflow: ellipsis;
+}
+
+select.no-selection,
+select option.no-selection-option {
+    color: #8E8E92;
+    font-style: italic;
 }
 
 /*--------- context menu ----------*/

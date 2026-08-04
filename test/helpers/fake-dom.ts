@@ -18,6 +18,26 @@ export class FakeOption {
 	textContent = "";
 	value = "";
 	selected = false;
+	className = "";
+}
+
+/** Minimal DOMTokenList used to assert state classes applied by the real PI. */
+class FakeClassList {
+	readonly #tokens = new Set<string>();
+
+	toggle(token: string, force?: boolean): boolean {
+		const enabled = force ?? !this.#tokens.has(token);
+		if (enabled) {
+			this.#tokens.add(token);
+		} else {
+			this.#tokens.delete(token);
+		}
+		return enabled;
+	}
+
+	contains(token: string): boolean {
+		return this.#tokens.has(token);
+	}
 }
 
 /** Base element with event listeners and a style object. */
@@ -28,6 +48,7 @@ class FakeElement {
 	 * covering it must start it at `none` — see {@link FakeDiv}.
 	 */
 	readonly style: { display: string } = { display: "" };
+	readonly classList = new FakeClassList();
 	disabled = false;
 	readonly #listeners = new Map<string, ((event: unknown) => void)[]>();
 

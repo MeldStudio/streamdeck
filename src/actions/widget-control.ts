@@ -7,12 +7,43 @@ import { MeldAction, type RenderArgs } from "./base.js";
 
 /** Settings for {@link WidgetControl}. */
 type WidgetControlSettings = {
+	widget?: string;
 	event?: string;
 	amount?: string | number;
 };
 
 const ADD_TIME_EVENT = "SUBATHONTIMER_ADDTIME";
 const DEFAULT_EVENT = "STOPWATCH_RESET";
+const DEFAULT_WIDGET = "STOPWATCH";
+const DEFAULT_AMOUNT = "60";
+
+const EVENT_WIDGET: Record<string, string> = {
+	STOPWATCH_RESET: "STOPWATCH",
+	STOPWATCH_PAUSE: "STOPWATCH",
+	STOPWATCH_RESUME: "STOPWATCH",
+	COUNTDOWN_RESET: "COUNTDOWN",
+	COUNTDOWN_PAUSE: "COUNTDOWN",
+	COUNTDOWN_RESUME: "COUNTDOWN",
+	CONFETTIFALL_TRIGGER: "CONFETTIFALL",
+	CONFETTIPOP_TRIGGER: "CONFETTIPOP",
+	SUBATHONTIMER_RESET: "SUBATHONTIMER",
+	SUBATHONTIMER_PAUSE: "SUBATHONTIMER",
+	SUBATHONTIMER_RESUME: "SUBATHONTIMER",
+	SUBATHONTIMER_ADDTIME: "SUBATHONTIMER",
+	WHEELSPIN_SPIN: "WHEELSPIN",
+	COUNTER_INCREMENT: "COUNTER",
+	COUNTER_DECREMENT: "COUNTER",
+};
+
+const DEFAULT_EVENT_BY_WIDGET: Record<string, string> = {
+	STOPWATCH: "STOPWATCH_RESET",
+	COUNTDOWN: "COUNTDOWN_RESET",
+	CONFETTIFALL: "CONFETTIFALL_TRIGGER",
+	CONFETTIPOP: "CONFETTIPOP_TRIGGER",
+	SUBATHONTIMER: "SUBATHONTIMER_RESET",
+	WHEELSPIN: "WHEELSPIN_SPIN",
+	COUNTER: "COUNTER_INCREMENT",
+};
 
 /** Maps each widget stream event to its key icon. */
 const WIDGET_EVENT_ICONS: Record<string, string> = {
@@ -36,6 +67,20 @@ const WIDGET_EVENT_ICONS: Record<string, string> = {
 /** Dispatches widget stream events (stopwatch, countdown, confetti, etc.). */
 @action({ UUID: "co.meldstudio.streamdeck.widget-control" })
 export class WidgetControl extends MeldAction<WidgetControlSettings> {
+	protected override migrateSettings(settings: WidgetControlSettings): WidgetControlSettings {
+		const requestedEvent = settings.event ?? DEFAULT_EVENT;
+		const widget =
+			(settings.widget && DEFAULT_EVENT_BY_WIDGET[settings.widget] ? settings.widget : undefined) ??
+			EVENT_WIDGET[requestedEvent] ??
+			DEFAULT_WIDGET;
+		const event = EVENT_WIDGET[requestedEvent] === widget ? requestedEvent : DEFAULT_EVENT_BY_WIDGET[widget];
+		const amount = settings.amount ?? DEFAULT_AMOUNT;
+		if (settings.event === event && settings.widget === widget && settings.amount != null) {
+			return settings;
+		}
+		return { ...settings, widget, event, amount };
+	}
+
 	/** Shows the icon for the configured event. Independent of session state. */
 	protected render({ action, settings }: RenderArgs<WidgetControlSettings>): Promise<void> {
 		return this.setKeyImage(action, this.#iconFor(settings.event));
@@ -43,8 +88,12 @@ export class WidgetControl extends MeldAction<WidgetControlSettings> {
 
 	/** @inheritdoc */
 	override onKeyUp(ev: KeyUpEvent<WidgetControlSettings>): void {
-		const eventType = ev.payload.settings.event || DEFAULT_EVENT;
-		const payload = this.#buildPayload(eventType, ev.payload.settings.amount);
+		// A migrated setSettings echo can arrive after the user's first press. The
+		// canonical cache is already populated, so use it instead of dispatching the
+		// stale event payload during that window.
+		const settings = this.settingsFor(ev.action.id) ?? ev.payload.settings;
+		const eventType = settings.event || DEFAULT_EVENT;
+		const payload = this.#buildPayload(eventType, settings.amount);
 
 		const meld = this.meld.meld;
 		if (!meld?.sendStreamEvent) {

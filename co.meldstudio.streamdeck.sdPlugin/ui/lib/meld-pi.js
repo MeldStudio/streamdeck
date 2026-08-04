@@ -164,10 +164,12 @@
 					const current = currentSettings[id] || "";
 					el.innerHTML = "";
 					el.disabled = false;
-					el.appendChild(option("[No Selection]", "", current === ""));
+					const emptyOption = option("No Selection", "", current === "");
+					emptyOption.className = "no-selection-option";
+					el.appendChild(emptyOption);
 					// The first select lists all items of its type; each later one lists
 					// only children of the previous selection — and nothing at all while
-					// that selection is "[No Selection]", so a mismatched child can never
+					// that selection is "No Selection", so a mismatched child can never
 					// be picked.
 					if (position === 0 || parent) {
 						for (const item of itemsByType(session.items, id, parent, keepFilter)) {
@@ -177,10 +179,11 @@
 					el.value = current;
 					if (el.selectedIndex === -1) {
 						// The stored value isn't in the (possibly refiltered) list — e.g. a
-						// child saved under a different parent. Show "[No Selection]"
+						// child saved under a different parent. Show "No Selection"
 						// instead of a blank control, and don't filter children by it.
 						el.selectedIndex = 0;
 					}
+					el.classList.toggle("no-selection", el.value === "");
 					parent = el.value;
 				});
 			};
