@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
-import { FakeDiv, FakeInput, FakeSelect, loadPropertyInspector } from "./helpers/fake-dom.ts";
+import { FakeDiv, FakeInput, FakeOption, FakeSelect, loadPropertyInspector } from "./helpers/fake-dom.ts";
 
 /** Session items covering two scenes, their layers, and an effect. */
 const ITEMS = {
@@ -38,7 +38,43 @@ describe("property inspector runtime", () => {
 		);
 		assert.match(presetSelect, /<option value="custom">Custom…<\/option>/);
 		assert.match(html, /<input[^>]+type="number"[^>]+id="clipDuration"[^>]+min="0"[^>]+max="90"/s);
-		assert.match(html, /MeldPI\.patchSettings\({ clipDuration: customEl\.value }\)/);
+		assert.match(html, /MeldPI\.bindEditablePreset\(/);
+	});
+
+	test("editable presets keep custom input and persisted duration synchronized", () => {
+		const pi = loadPropertyInspector({ clipDuration: "42" });
+		const preset = pi.element("clipDurationPreset", new FakeSelect(false));
+		for (const value of ["10", "15", "30", "60", "90", "custom"]) {
+			const option = new FakeOption();
+			option.value = value;
+			preset.appendChild(option);
+		}
+		const custom = pi.element("clipDuration", new FakeInput());
+		const customRow = pi.element("custom-duration-row", new FakeDiv());
+		pi.MeldPI.bindEditablePreset(
+			"clipDuration",
+			"clipDurationPreset",
+			"custom-duration-row",
+			["10", "15", "30", "60", "90"],
+			"90",
+		);
+
+		assert.equal(preset.value, "custom");
+		assert.equal(custom.value, "42");
+		assert.equal(customRow.style.display, "");
+
+		preset.choose("15");
+		assert.equal(custom.value, "15", "a preset must replace the hidden stale custom value");
+		assert.equal(customRow.style.display, "none");
+		assert.equal(pi.MeldPI.getSettings().clipDuration, "15");
+
+		preset.choose("custom");
+		assert.equal(custom.value, "15");
+		assert.equal(customRow.style.display, "");
+		assert.equal(pi.MeldPI.getSettings().clipDuration, "15");
+
+		custom.enter("37");
+		assert.equal(pi.MeldPI.getSettings().clipDuration, "37");
 	});
 
 	test("the shared select styling supplies an explicit dropdown caret", () => {

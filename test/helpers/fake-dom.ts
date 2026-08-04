@@ -217,6 +217,13 @@ export type PropertyInspector = {
 	MeldPI: Record<string, (...args: never[]) => unknown> & {
 		bindSessionSelects(ids: string[], keepFilter?: (type: string, item: unknown) => boolean): void;
 		bindField(id: string, fallback?: string): void;
+		bindEditablePreset(
+			id: string,
+			presetId: string,
+			customRowId: string,
+			presets: string[],
+			fallback: string,
+		): void;
 		watchConnection(loadingId: string): void;
 		getSettings(): Record<string, unknown>;
 		patchSettings(patch: Record<string, unknown>): void;

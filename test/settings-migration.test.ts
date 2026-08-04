@@ -107,6 +107,12 @@ describe("durable settings migrations", () => {
 			expected: () => ({ clipDuration: "90", future }),
 		},
 		{
+			name: "clip treats an explicit null duration as its historical default",
+			create: (c) => new Clip(c) as unknown as MeldAction<JsonObject>,
+			input: () => ({ clipDuration: null, future }),
+			expected: () => ({ clipDuration: "90", future }),
+		},
+		{
 			name: "clip clamps hand-edited durations to Meld's advertised maximum",
 			create: (c) => new Clip(c) as unknown as MeldAction<JsonObject>,
 			input: () => ({ clipDuration: "120", future }),

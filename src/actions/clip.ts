@@ -7,7 +7,7 @@ import { MeldAction } from "./base.js";
 
 /** Settings for {@link Clip}. */
 type ClipSettings = {
-	clipDuration?: string | number;
+	clipDuration?: string | number | null;
 };
 
 const DEFAULT_CLIP_DURATION = 90;
@@ -41,8 +41,8 @@ export class Clip extends MeldAction<ClipSettings> {
 	}
 
 	/** Normalizes user input to Meld's advertised finite 0–90 second range. */
-	#duration(value: string | number | undefined): number {
-		const parsed = typeof value === "string" && value.trim() === "" ? Number.NaN : Number(value);
+	#duration(value: string | number | null | undefined): number {
+		const parsed = value == null || (typeof value === "string" && value.trim() === "") ? Number.NaN : Number(value);
 		if (!Number.isFinite(parsed)) {
 			return DEFAULT_CLIP_DURATION;
 		}

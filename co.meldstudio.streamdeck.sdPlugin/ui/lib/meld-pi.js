@@ -238,6 +238,46 @@
 		},
 
 		/**
+		 * Binds a standard preset select plus a conditionally visible custom input.
+		 * The input id is also the persisted settings key.
+		 * @param {string} id Custom input id and settings key.
+		 * @param {string} presetId Select containing preset values and `custom`.
+		 * @param {string} customRowId Row to reveal for manual entry.
+		 * @param {string[]} presets Values represented directly by select options.
+		 * @param {string} fallback Value shown when the setting is absent.
+		 */
+		bindEditablePreset(id, presetId, customRowId, presets, fallback) {
+			const presetEl = document.getElementById(presetId);
+			const customEl = document.getElementById(id);
+			const customRow = document.getElementById(customRowId);
+			if (!presetEl || !customEl || !customRow) {
+				return;
+			}
+			const apply = (settings) => {
+				const duration = settings[id] != null ? String(settings[id]) : fallback;
+				const isPreset = presets.includes(duration);
+				presetEl.value = isPreset ? duration : "custom";
+				customEl.value = duration;
+				customRow.style.display = isPreset ? "none" : "";
+			};
+			presetEl.addEventListener("change", () => {
+				const custom = presetEl.value === "custom";
+				customRow.style.display = custom ? "" : "none";
+				if (!custom) {
+					// Keep the hidden editor synchronized so reopening Custom can never
+					// display a value different from the one the action will execute.
+					customEl.value = presetEl.value;
+					MeldPI.patchSettings({ [id]: presetEl.value });
+				}
+			});
+			customEl.addEventListener("change", () => {
+				MeldPI.patchSettings({ [id]: customEl.value });
+			});
+			this.onDidReceiveSettings(apply);
+			apply(currentSettings);
+		},
+
+		/**
 		 * Shows/hides a "Connecting to Meld Studio..." element based on the plugin's
 		 * connection status.
 		 * @param {string} loadingId Element id of the connecting indicator.
