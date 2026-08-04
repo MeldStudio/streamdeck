@@ -46,18 +46,48 @@ describe("basic Meld actions", () => {
 	test("clip and screenshot dispatch their documented commands", async () => {
 		const clip = new Clip(connection);
 		const screenshot = new Screenshot(connection);
-		const clipKey = new FakeActionInstance("clip", {});
+		// 42 is deliberately not one of the inspector presets: the combo remains
+		// manually editable and must forward custom values too.
+		const clipSettings = { clipDuration: "42" };
+		const clipKey = new FakeActionInstance("clip", clipSettings);
 		const screenshotKey = new FakeActionInstance("screenshot", {});
 		mount(clip, [clipKey]);
 		mount(screenshot, [screenshotKey]);
 
-		await press(clip, clipKey, {});
+		await clip.onWillAppear(willAppear(clipKey, clipSettings) as never);
+		await press(clip, clipKey, clipSettings);
 		await press(screenshot, screenshotKey, {});
 
-		assert.deepEqual(
-			server.methods.sendCommand.mock.calls.map((call) => call.arguments),
-			[["meld.recordClip"], ["meld.screenshot"]],
-		);
+		assert.deepEqual(server.methods.sendCommandWithArgs.mock.calls[0].arguments, ["meld.recordClip", [42]]);
+		assert.deepEqual(server.methods.sendCommand.mock.calls.map((call) => call.arguments), [["meld.screenshot"]]);
+	});
+
+	test("clip uses its migrated default before the Stream Deck settings echo", async () => {
+		const clip = new Clip(connection);
+		const clipKey = new FakeActionInstance("clip-default", {});
+		mount(clip, [clipKey]);
+		await clip.onWillAppear(willAppear(clipKey, {}) as never);
+
+		await press(clip, clipKey, {});
+
+		assert.deepEqual(clipKey.settingsWrites, [{ clipDuration: "90" }]);
+		assert.deepEqual(server.methods.sendCommandWithArgs.mock.calls.at(-1)?.arguments, ["meld.recordClip", [90]]);
+	});
+
+	test("clip falls back to the maximum-duration command on older Meld builds", async () => {
+		const clip = new Clip(connection);
+		const settings = { clipDuration: "15" };
+		const clipKey = new FakeActionInstance("clip-old-meld", settings);
+		mount(clip, [clipKey]);
+		const sendCommandWithArgs = server.meld.sendCommandWithArgs;
+		server.meld.sendCommandWithArgs = undefined;
+		try {
+			await press(clip, clipKey, settings);
+		} finally {
+			server.meld.sendCommandWithArgs = sendCommandWithArgs;
+		}
+
+		assert.deepEqual(server.methods.sendCommand.mock.calls.at(-1)?.arguments, ["meld.recordClip"]);
 	});
 
 	test("recording and streaming keys follow the result signals", async () => {

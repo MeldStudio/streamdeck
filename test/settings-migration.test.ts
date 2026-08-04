@@ -7,6 +7,7 @@ import { after, before, describe, test } from "node:test";
 import type { JsonObject } from "@elgato/utils";
 
 import type { MeldAction } from "../src/actions/base.ts";
+import { Clip } from "../src/actions/clip.ts";
 import { Media } from "../src/actions/media.ts";
 import { Replay } from "../src/actions/replay.ts";
 import { ToggleEffect } from "../src/actions/toggle-effect.ts";
@@ -99,6 +100,18 @@ describe("durable settings migrations", () => {
 
 	const future = { keep: true };
 	const cases: MigrationCase[] = [
+		{
+			name: "clip records its historical 90-second default",
+			create: (c) => new Clip(c) as unknown as MeldAction<JsonObject>,
+			input: () => ({ future }),
+			expected: () => ({ clipDuration: "90", future }),
+		},
+		{
+			name: "clip clamps hand-edited durations to Meld's advertised maximum",
+			create: (c) => new Clip(c) as unknown as MeldAction<JsonObject>,
+			input: () => ({ clipDuration: "120", future }),
+			expected: () => ({ clipDuration: "90", future }),
+		},
 		{
 			name: "toggle-layer derives the scene from the selected layer",
 			create: (c) => new ToggleLayer(c) as unknown as MeldAction<JsonObject>,

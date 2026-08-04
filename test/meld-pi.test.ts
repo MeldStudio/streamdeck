@@ -8,7 +8,7 @@
 // configured but does nothing.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
 import { FakeDiv, FakeInput, FakeSelect, loadPropertyInspector } from "./helpers/fake-dom.ts";
@@ -26,6 +26,21 @@ const ITEMS = {
 };
 
 describe("property inspector runtime", () => {
+	test("the clip inspector offers editable duration presets", () => {
+		const html = readFileSync(
+			new URL("../co.meldstudio.streamdeck.sdPlugin/ui/clip.html", import.meta.url),
+			"utf8",
+		);
+		const presetSelect = html.match(/<select[^>]+id="clipDurationPreset"[^>]*>([\s\S]*?)<\/select>/)?.[1] ?? "";
+		assert.deepEqual(
+			[...presetSelect.matchAll(/<option value="(\d+)"/g)].map((match) => match[1]),
+			["10", "15", "30", "60", "90"],
+		);
+		assert.match(presetSelect, /<option value="custom">Custom…<\/option>/);
+		assert.match(html, /<input[^>]+type="number"[^>]+id="clipDuration"[^>]+min="0"[^>]+max="90"/s);
+		assert.match(html, /MeldPI\.patchSettings\({ clipDuration: customEl\.value }\)/);
+	});
+
 	test("the shared select styling supplies an explicit dropdown caret", () => {
 		const css = readFileSync(
 			new URL("../co.meldstudio.streamdeck.sdPlugin/libs/css/sdpi.css", import.meta.url),
@@ -35,6 +50,16 @@ describe("property inspector runtime", () => {
 		assert.match(css, /background-position:\s*right 6px center/);
 		assert.match(css, /select\.no-selection/);
 		assert.match(css, /font-style:\s*italic/);
+	});
+
+	test("every inspector select uses the shared combo styling", () => {
+		const uiDirectory = new URL("../co.meldstudio.streamdeck.sdPlugin/ui/", import.meta.url);
+		for (const file of readdirSync(uiDirectory).filter((name) => name.endsWith(".html"))) {
+			const html = readFileSync(new URL(file, uiDirectory), "utf8");
+			for (const select of html.matchAll(/<select\b[^>]*>/g)) {
+				assert.match(select[0], /class="sdpi-item-value select"/, `${file} must use the shared select style`);
+			}
+		}
 	});
 
 	test("registers with Stream Deck and asks the plugin for the session", () => {

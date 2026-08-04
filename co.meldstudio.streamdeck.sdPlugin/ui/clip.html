@@ -14,10 +14,53 @@
 <body>
     <div class="sdpi-wrapper">
         <div class="sdpi-item">
-            <div class="sdpi-item-label empty"></div>
-            <span class="sdpi-item-value">Press the key to record a 90 second clip to disk.</span>
+            <div class="sdpi-item-label">Seconds</div>
+            <select class="sdpi-item-value select" id="clipDurationPreset">
+                <option value="10">10</option>
+                <option value="15">15</option>
+                <option value="30">30</option>
+                <option value="60">60</option>
+                <option value="90">90</option>
+                <option value="custom">Custom…</option>
+            </select>
+        </div>
+        <div class="sdpi-item" id="custom-duration-row" style="display: none;">
+            <div class="sdpi-item-label">Custom</div>
+            <input type="number" class="sdpi-item-value" id="clipDuration" value="90" min="0" max="90"
+                step="1" />
         </div>
     </div>
+
+    <script src="lib/meld-pi.js"></script>
+    <script>
+        MeldPI.onReady(() => {
+            const presets = ["10", "15", "30", "60", "90"];
+            const presetEl = document.getElementById("clipDurationPreset");
+            const customEl = document.getElementById("clipDuration");
+            const customRow = document.getElementById("custom-duration-row");
+
+            function applySettings(settings) {
+                const duration = settings.clipDuration != null ? String(settings.clipDuration) : "90";
+                const isPreset = presets.includes(duration);
+                presetEl.value = isPreset ? duration : "custom";
+                customEl.value = duration;
+                customRow.style.display = isPreset ? "none" : "";
+            }
+
+            presetEl.addEventListener("change", () => {
+                const custom = presetEl.value === "custom";
+                customRow.style.display = custom ? "" : "none";
+                if (!custom) {
+                    MeldPI.patchSettings({ clipDuration: presetEl.value });
+                }
+            });
+            customEl.addEventListener("change", () => {
+                MeldPI.patchSettings({ clipDuration: customEl.value });
+            });
+            MeldPI.onDidReceiveSettings(applySettings);
+            applySettings(MeldPI.getSettings());
+        });
+    </script>
 </body>
 
 </html>

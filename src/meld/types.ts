@@ -110,6 +110,7 @@ export type MeldObject = {
 	callFunction?(layerId: string, command: string): void;
 	callFunctionWithArgs?(layerId: string, command: string, args: unknown[]): void;
 	sendCommand?(command: string): void;
+	sendCommandWithArgs?(commandName: string, args: unknown[]): void;
 	sendStreamEvent?(type: string, data?: unknown): void;
 	sendEvent?(event: string): void;
 };

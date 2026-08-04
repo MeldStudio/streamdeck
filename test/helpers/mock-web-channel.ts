@@ -47,6 +47,7 @@ export type MockMeldMethods = {
 		| "callFunction"
 		| "callFunctionWithArgs"
 		| "sendCommand"
+		| "sendCommandWithArgs"
 		| "sendStreamEvent"
 		| "sendEvent"]: Mock<RequiredMethod<K>>;
 };
@@ -189,6 +190,7 @@ export class MockWebChannel {
 			callFunctionWithArgs: mock.fn((layerId: string, command: string, _args: unknown[]) =>
 				this.#callFunction(layerId, command)),
 			sendCommand: mock.fn((_command: string) => {}),
+			sendCommandWithArgs: mock.fn((_commandName: string, _args: unknown[]) => {}),
 			sendStreamEvent: mock.fn((_type: string, _data?: unknown) => {}),
 			sendEvent: mock.fn((_event: string) => {}),
 		};
