@@ -13,11 +13,9 @@ And we're not done yet! We are continually working to bring you even more capabi
 ## What's New
 
 Version 0.6.4.1
-- Refactored the plugin onto Elgato's official Node.js Stream Deck SDK.
-- Optimized Meld Studio interactions for all actions.
 - Added configurable durations to the Record Clip action. Choose a 10, 15, 30, 60, or 90 second preset, or enter a custom duration from 0 to 90 seconds.
 - Improved action state synchronization and recovery after Meld Studio reconnects and session restores.
-- Fixed reversed active/inactive icon states on the Cue, Layer Visibility, Effect Visibility, Record, Go Live, and Change Scene actions so third icon packs indicate correctly with Meld Studio actions.
+- Fixed reversed active/inactive icon states on the Cue, Layer Visibility, Effect Visibility, Record, Go Live, and Change Scene actions so thirdparty icon packs indicate correctly with Meld Studio actions.
 
 ## Helpful Links
 
@@ -44,7 +42,7 @@ hi@meldstudio.co
 - Optimized Meld Studio interactions for all actions.
 - Added configurable durations to the Record Clip action. Choose a 10, 15, 30, 60, or 90 second preset, or enter a custom duration from 0 to 90 seconds.
 - Improved action state synchronization and recovery after Meld Studio reconnects and session restores.
-- Fixed reversed active/inactive icon states on the Cue, Layer Visibility, Effect Visibility, Record, Go Live, and Change Scene actions so third icon packs indicate correctly with Meld Studio actions.
+- Fixed reversed active/inactive icon states on the Cue, Layer Visibility, Effect Visibility, Record, Go Live, and Change Scene actions so thirdparty icon packs indicate correctly with Meld Studio actions.
 
 
 ## 2026-05-13 (v0.6.3.2)
