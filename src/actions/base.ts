@@ -1,0 +1,364 @@
+// Copyright (c) 2024 Meld Studio, Inc.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
+import streamDeck, {
+	type DialAction,
+	type DidReceiveSettingsEvent,
+	type KeyAction,
+	type KeyDownEvent,
+	SingletonAction,
+	type WillAppearEvent,
+	type WillDisappearEvent,
+} from "@elgato/streamdeck";
+import type { JsonObject } from "@elgato/utils";
+
+import { meld, type MeldConnection, MeldSession } from "../meld/index.js";
+
+/** Why {@link MeldAction.render} was invoked. */
+export type RenderReason =
+	| "willAppear"
+	| "didReceiveSettings"
+	| "sessionChanged"
+	| "streamingChanged"
+	| "recordingChanged"
+	| "ready"
+	| "closed";
+
+/** A visible action instance — either a key or a dial. */
+export type MeldActionInstance<T extends JsonObject> = DialAction<T> | KeyAction<T>;
+
+/** Everything an action needs to render one context deterministically. */
+export type RenderArgs<T extends JsonObject> = {
+	/** The action instance to update. */
+	action: MeldActionInstance<T>;
+	/** The action instance's current settings. */
+	settings: T;
+	/** A read-only view of the latest authoritative Meld session. */
+	session: MeldSession;
+	/** Why the render was triggered. */
+	reason: RenderReason;
+};
+
+/**
+ * Base class for every Meld action.
+ *
+ * It collapses the old, race-prone `onWillAppear` → `getSettings` →
+ * `onDidReceiveSettings` → `hydrateAll` → `onHydrate` chain into a single
+ * declarative {@link render} method that the framework calls whenever anything
+ * relevant changes: the action appears, its settings change, the session
+ * changes, streaming/recording toggles, or the connection (re)connects.
+ *
+ * Subclasses implement {@link render} and, if needed, the small optional hooks.
+ * They never wire up reconnect handling themselves — the shared
+ * {@link MeldConnection} owns that.
+ */
+export abstract class MeldAction<T extends JsonObject = JsonObject> extends SingletonAction<T> {
+	/** The shared, process-wide Meld connection. */
+	protected readonly meld: MeldConnection;
+
+	/** Latest known settings per visible context id. */
+	readonly #settings = new Map<string, T>();
+	/** Contexts whose last migration write failed and must be retried. */
+	readonly #settingsPersistenceRetry = new Set<string>();
+	/** Canonical settings writes currently being sent, keyed by visible context. */
+	readonly #settingsPersistenceInFlight = new Map<string, { settings: T; promise: Promise<void> }>();
+
+	/** Last state/image pushed per context, used to suppress redundant messages. */
+	readonly #lastState = new Map<string, number>();
+	readonly #lastImage = new Map<string, string | undefined>();
+
+	/**
+	 * @param connection Meld connection to bind to. Defaults to the process-wide
+	 * singleton; tests pass one pointed at a fake Meld.
+	 */
+	constructor(connection: MeldConnection = meld) {
+		super();
+		this.meld = connection;
+		// One subscription set per action instance (a singleton). The connection
+		// re-emits a full snapshot on every (re)connect, so these cover hydration.
+		this.meld.on("ready", () => void this.renderAll("ready"));
+		this.meld.on("closed", () => void this.renderAll("closed"));
+		this.meld.on("sessionChanged", () => void this.renderAll("sessionChanged"));
+		this.meld.on("streamingChanged", () => void this.renderAll("streamingChanged"));
+		this.meld.on("recordingChanged", () => void this.renderAll("recordingChanged"));
+	}
+
+	/** Whether Meld is currently streaming (authoritative). */
+	protected get isStreaming(): boolean {
+		return !!this.meld.meld?.isStreaming;
+	}
+
+	/** Whether Meld is currently recording (authoritative). */
+	protected get isRecording(): boolean {
+		return !!this.meld.meld?.isRecording;
+	}
+
+	/**
+	 * Renders a single context from authoritative state. Implemented by each action.
+	 * @param args Action, settings, session snapshot, and the trigger reason.
+	 */
+	protected abstract render(args: RenderArgs<T>): void | Promise<void>;
+
+	/**
+	 * Optional hook invoked once when an action becomes visible, before its first
+	 * {@link render}. Use for one-time setup such as initial dial feedback.
+	 * @param args Render arguments for the appearing context.
+	 */
+	protected onAppear?(args: RenderArgs<T>): void | Promise<void>;
+
+	/**
+	 * Optional hook invoked when an action becomes invisible. Use for cleanup such
+	 * as unregistering a track observer.
+	 * @param context The disappearing context id.
+	 * @param settings The context's last known settings, if any.
+	 */
+	protected onDisappear?(context: string, settings: T | undefined): void | Promise<void>;
+
+	/**
+	 * Optional hook invoked when settings change, before {@link render}.
+	 * @param args Render arguments plus the previous settings.
+	 */
+	protected onSettingsChanged?(args: RenderArgs<T> & { previous: T | undefined }): void | Promise<void>;
+
+	/**
+	 * Returns the canonical persisted form of an action's settings.
+	 *
+	 * Migrations run both when Stream Deck supplies settings and on connection
+	 * updates, because parent ids can only be repaired once the corresponding Meld
+	 * session is available. Implementations must preserve fields they do not own.
+	 * The base class persists a changed result and suppresses identical rewrites.
+	 */
+	protected migrateSettings(settings: T, _session: MeldSession): T {
+		return settings;
+	}
+
+	/** @inheritdoc */
+	override async onWillAppear(ev: WillAppearEvent<T>): Promise<void> {
+		const session = this.session();
+		const settings = await this.#migrateAndPersist(ev.action, ev.payload.settings, session);
+		const args: RenderArgs<T> = {
+			action: ev.action,
+			settings,
+			session,
+			reason: "willAppear",
+		};
+		await this.onAppear?.(args);
+		await this.render(args);
+	}
+
+	/** @inheritdoc */
+	override async onWillDisappear(ev: WillDisappearEvent<T>): Promise<void> {
+		const settings = this.#settings.get(ev.action.id);
+		this.#settings.delete(ev.action.id);
+		this.#settingsPersistenceRetry.delete(ev.action.id);
+		this.#lastState.delete(ev.action.id);
+		this.#lastImage.delete(ev.action.id);
+		await this.onDisappear?.(ev.action.id, settings);
+	}
+
+	/** @inheritdoc */
+	override onKeyDown(ev: KeyDownEvent<T>): void {
+		// The Stream Deck app may repaint a key on press (multi-actions, or any
+		// state the manifest doesn't cover), so the displayed state can no longer be
+		// assumed to match what we last sent. Forget it so the next setKeyState /
+		// setKeyImage always reasserts the authoritative visuals.
+		this.#lastState.delete(ev.action.id);
+		this.#lastImage.delete(ev.action.id);
+	}
+
+	/** @inheritdoc */
+	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<T>): Promise<void> {
+		const previous = this.#settings.get(ev.action.id);
+		const session = this.session();
+		const settings = await this.#migrateAndPersist(ev.action, ev.payload.settings, session);
+		const args: RenderArgs<T> = {
+			action: ev.action,
+			settings,
+			session,
+			reason: "didReceiveSettings",
+		};
+		await this.onSettingsChanged?.({ ...args, previous });
+		await this.render(args);
+	}
+
+	/** A read-only view over the latest authoritative session snapshot. */
+	protected session(): MeldSession {
+		return new MeldSession(this.meld.session);
+	}
+
+	/** The cached settings for a context, if known. */
+	protected settingsFor(context: string): T | undefined {
+		return this.#settings.get(context);
+	}
+
+	/**
+	 * Re-renders every visible instance of this action from the current session.
+	 * @param reason Why the re-render was triggered.
+	 */
+	protected async renderAll(reason: RenderReason): Promise<void> {
+		const session = this.session();
+		for (const action of this.actions) {
+			// Contain per-context failures: renderAll is invoked fire-and-forget from
+			// connection events, and one bad context must not skip the others or
+			// surface as an unhandled rejection.
+			try {
+				let settings = this.#settings.get(action.id);
+				if (settings === undefined) {
+					settings = await action.getSettings<T>();
+				}
+				settings = await this.#migrateAndPersist(action, settings, session);
+				await this.render({ action, settings, session, reason });
+			} catch (err) {
+				streamDeck.logger.error(`Failed to render ${action.id} (${reason})`, err);
+			}
+		}
+	}
+
+	/** Migrates, caches, and (only when changed) persists one settings object. */
+	async #migrateAndPersist(action: MeldActionInstance<T>, settings: T, session: MeldSession): Promise<T> {
+		const migrated = this.migrateSettings(settings, session);
+		// Claim the canonical cache entry before the write. A ready/sessionChanged
+		// pair can render concurrently; the second pass then sees the migrated value
+		// and cannot issue a duplicate setSettings command.
+		this.#settings.set(action.id, migrated);
+		if (!this.#sameSettings(settings, migrated) || this.#settingsPersistenceRetry.has(action.id)) {
+			// Lifecycle callbacks can overlap before Stream Deck echoes a setSettings
+			// write. Join an identical write, and serialize a genuinely newer one.
+			while (true) {
+				const pending = this.#settingsPersistenceInFlight.get(action.id);
+				if (!pending) {
+					break;
+				}
+				if (this.#sameSettings(pending.settings, migrated)) {
+					await pending.promise;
+					return migrated;
+				}
+				await pending.promise;
+			}
+
+			this.#settingsPersistenceRetry.delete(action.id);
+			let entry: { settings: T; promise: Promise<void> };
+			const promise = Promise.resolve()
+				.then(() => action.setSettings(migrated))
+				.catch((err: unknown) => {
+					this.#settingsPersistenceRetry.add(action.id);
+					streamDeck.logger.error(`Failed to persist migrated settings for ${action.id}`, err);
+				})
+				.finally(() => {
+					if (this.#settingsPersistenceInFlight.get(action.id) === entry) {
+						this.#settingsPersistenceInFlight.delete(action.id);
+					}
+				});
+			entry = { settings: migrated, promise };
+			this.#settingsPersistenceInFlight.set(action.id, entry);
+			await promise;
+		}
+		return migrated;
+	}
+
+	/** Structural JSON equality, including forward-compatible fields this plugin does not own. */
+	#sameSettings(left: T, right: T): boolean {
+		return this.#sameJsonValue(left, right);
+	}
+
+	#sameJsonValue(left: unknown, right: unknown): boolean {
+		if (left === right) {
+			return true;
+		}
+		if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+			return false;
+		}
+		if (Array.isArray(left) || Array.isArray(right)) {
+			return (
+				Array.isArray(left) &&
+				Array.isArray(right) &&
+				left.length === right.length &&
+				left.every((value, index) => this.#sameJsonValue(value, right[index]))
+			);
+		}
+		const leftObject = left as Record<string, unknown>;
+		const rightObject = right as Record<string, unknown>;
+		const leftKeys = Object.keys(leftObject);
+		const rightKeys = Object.keys(rightObject);
+		return (
+			leftKeys.length === rightKeys.length &&
+			leftKeys.every(
+				(key) => Object.hasOwn(rightObject, key) && this.#sameJsonValue(leftObject[key], rightObject[key]),
+			)
+		);
+	}
+
+	/**
+	 * Sets a key's state, suppressing the message when the state is unchanged.
+	 * @param action Key action instance.
+	 * @param state State to display (0 or 1).
+	 */
+	protected async setKeyState(action: MeldActionInstance<T>, state: 0 | 1): Promise<void> {
+		if (this.#lastState.get(action.id) === state) {
+			return;
+		}
+		// Claim the cache slot before awaiting the send. Two updates can land in one
+		// event-loop turn, and if the cache still held the pre-send value a newer
+		// state matching it would be suppressed — leaving the key latched on the
+		// older value with a cache that agrees.
+		const previous = this.#lastState.get(action.id);
+		this.#lastState.set(action.id, state);
+		try {
+			await this.asKey(action).setState(state);
+		} catch (err) {
+			// The send failed, so restore the previous value and let the next render
+			// retry — unless a newer state has already claimed the slot.
+			if (this.#lastState.get(action.id) === state) {
+				this.#restore(this.#lastState, action.id, previous);
+			}
+			streamDeck.logger.error(`Failed to set state for ${action.id}`, err);
+		}
+	}
+
+	/**
+	 * Sets a key's image, suppressing the message when the image is unchanged.
+	 * @param action Key action instance.
+	 * @param image Image path/data, or `undefined` to fall back to the manifest.
+	 */
+	protected async setKeyImage(action: MeldActionInstance<T>, image: string | undefined): Promise<void> {
+		if (this.#lastImage.has(action.id) && this.#lastImage.get(action.id) === image) {
+			return;
+		}
+		const had = this.#lastImage.has(action.id);
+		const previous = this.#lastImage.get(action.id);
+		this.#lastImage.set(action.id, image);
+		try {
+			await this.asKey(action).setImage(image);
+		} catch (err) {
+			if (this.#lastImage.get(action.id) === image) {
+				this.#restore(this.#lastImage, action.id, had ? previous : undefined, had);
+			}
+			streamDeck.logger.error(`Failed to set image for ${action.id}`, err);
+		}
+	}
+
+	/**
+	 * Puts a dedupe-cache entry back after a failed send.
+	 * @param cache The cache to restore into.
+	 * @param context Context id.
+	 * @param previous The value held before the failed send.
+	 * @param hadEntry Whether an entry existed at all; when false the key is removed.
+	 */
+	#restore<V>(cache: Map<string, V>, context: string, previous: V | undefined, hadEntry = previous !== undefined): void {
+		if (hadEntry) {
+			cache.set(context, previous as V);
+		} else {
+			cache.delete(context);
+		}
+	}
+
+	/** Narrows an instance to a {@link KeyAction}; only valid for keypad actions. */
+	protected asKey(action: MeldActionInstance<T>): KeyAction<T> {
+		return action as KeyAction<T>;
+	}
+
+	/** Narrows an instance to a {@link DialAction}; only valid for encoder actions. */
+	protected asDial(action: MeldActionInstance<T>): DialAction<T> {
+		return action as DialAction<T>;
+	}
+}

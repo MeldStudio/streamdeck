@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.transition-stepper Property Inspector</title>
+    <link rel="stylesheet" href="../libs/css/sdpi.css">
+</head>
+
+<body>
+    <div class="sdpi-wrapper">
+        <div class="sdpi-more-info" id="blog" style="cursor: pointer;">
+            Learn about scene switching &amp; transitions
+        </div>
+    </div>
+
+    <script src="lib/meld-pi.js"></script>
+    <script>
+        MeldPI.onReady(() => {
+            const blog = document.getElementById("blog");
+            if (blog) {
+                blog.addEventListener("click", () =>
+                    MeldPI.openUrl("https://blog.meldstudio.co/re-designing-live-scene-switching-and-transitions/"),
+                );
+            }
+        });
+    </script>
+</body>
+
+</html>

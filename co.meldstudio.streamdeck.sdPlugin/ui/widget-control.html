@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.widget-control Property Inspector</title>
+    <link rel="stylesheet" href="../libs/css/sdpi.css">
+</head>
+
+<body>
+    <div class="sdpi-wrapper">
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Widget</div>
+            <select class="sdpi-item-value select" id="widget">
+                <option value="STOPWATCH">Stop Watch</option>
+                <option value="COUNTDOWN">Countdown</option>
+                <option value="CONFETTIFALL">Confetti Fall</option>
+                <option value="CONFETTIPOP">Confetti Pop</option>
+                <option value="SUBATHONTIMER">Subathon</option>
+                <option value="WHEELSPIN">Wheel Spin</option>
+                <option value="COUNTER">Counter</option>
+            </select>
+        </div>
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Action</div>
+            <select class="sdpi-item-value select" id="event">
+                <option value="STOPWATCH_RESET" data-widget="STOPWATCH">Reset</option>
+                <option value="STOPWATCH_PAUSE" data-widget="STOPWATCH">Pause</option>
+                <option value="STOPWATCH_RESUME" data-widget="STOPWATCH">Resume</option>
+                <option value="COUNTDOWN_RESET" data-widget="COUNTDOWN">Reset</option>
+                <option value="COUNTDOWN_PAUSE" data-widget="COUNTDOWN">Pause</option>
+                <option value="COUNTDOWN_RESUME" data-widget="COUNTDOWN">Resume</option>
+                <option value="CONFETTIFALL_TRIGGER" data-widget="CONFETTIFALL">Drop it!</option>
+                <option value="CONFETTIPOP_TRIGGER" data-widget="CONFETTIPOP">Pop it!</option>
+                <option value="SUBATHONTIMER_RESET" data-widget="SUBATHONTIMER">Reset</option>
+                <option value="SUBATHONTIMER_PAUSE" data-widget="SUBATHONTIMER">Pause</option>
+                <option value="SUBATHONTIMER_RESUME" data-widget="SUBATHONTIMER">Resume</option>
+                <option value="SUBATHONTIMER_ADDTIME" data-widget="SUBATHONTIMER">Add Time</option>
+                <option value="WHEELSPIN_SPIN" data-widget="WHEELSPIN">Spin it!</option>
+                <option value="COUNTER_INCREMENT" data-widget="COUNTER">Increment</option>
+                <option value="COUNTER_DECREMENT" data-widget="COUNTER">Decrement</option>
+            </select>
+        </div>
+        <div class="sdpi-item" id="amount-row" style="display: none;">
+            <div class="sdpi-item-label">Seconds to Add</div>
+            <input type="number" class="sdpi-item-value" id="amount" value="60" min="0" />
+        </div>
+
+        <div class="sdpi-item" id="loading" style="display: none;">
+            <div class="sdpi-connecting">Connecting to Meld Studio...</div>
+        </div>
+    </div>
+
+    <script src="lib/meld-pi.js"></script>
+    <script>
+        const ADD_TIME_EVENT = "SUBATHONTIMER_ADDTIME";
+        const DEFAULT_WIDGET = "STOPWATCH";
+        const DEFAULT_EVENT = "STOPWATCH_RESET";
+        const DEFAULT_AMOUNT = "60";
+
+        const widgetEl = document.getElementById("widget");
+        const eventEl = document.getElementById("event");
+        const amountEl = document.getElementById("amount");
+        const amountRow = document.getElementById("amount-row");
+        const allEventOptions = Array.from(eventEl.options);
+
+        function deriveWidgetFromEvent(eventValue) {
+            const match = allEventOptions.find((o) => o.value === eventValue);
+            return (match && match.dataset.widget) || DEFAULT_WIDGET;
+        }
+
+        function resolveWidget(preferred, eventValue) {
+            const available = Array.from(widgetEl.options).map((o) => o.value);
+            if (available.includes(preferred)) {
+                return preferred;
+            }
+            const derived = deriveWidgetFromEvent(eventValue);
+            return available.includes(derived) ? derived : available[0] || DEFAULT_WIDGET;
+        }
+
+        // Show only the events belonging to the selected widget.
+        function setEventOptions(widgetId, selectedEvent) {
+            eventEl.innerHTML = "";
+            const options = allEventOptions.filter((o) => o.dataset.widget === widgetId);
+            options.forEach((o) => eventEl.appendChild(o));
+            const resolved = options.find((o) => o.value === selectedEvent) || options[0];
+            if (resolved) {
+                eventEl.value = resolved.value;
+            }
+        }
+
+        function toggleAmountVisibility() {
+            amountRow.style.display = eventEl.value === ADD_TIME_EVENT ? "" : "none";
+        }
+
+        function applySettings(settings) {
+            settings = settings || {};
+            const resolvedEvent = settings.event || DEFAULT_EVENT;
+            const resolvedWidget = resolveWidget(settings.widget, resolvedEvent);
+            const resolvedAmount = settings.amount != null ? settings.amount : DEFAULT_AMOUNT;
+
+            widgetEl.value = resolvedWidget;
+            setEventOptions(resolvedWidget, resolvedEvent);
+            amountEl.value = resolvedAmount;
+            toggleAmountVisibility();
+
+            // Persist normalization once. Preserve fields owned by future plugin
+            // versions, and do not turn didReceiveSettings into a write/echo loop.
+            const normalized = Object.assign({}, settings, {
+                widget: resolvedWidget,
+                event: eventEl.value,
+                amount: resolvedAmount,
+            });
+            if (
+                settings.widget !== normalized.widget ||
+                settings.event !== normalized.event ||
+                settings.amount !== normalized.amount
+            ) {
+                MeldPI.setSettings(normalized);
+            }
+        }
+
+        MeldPI.onReady(() => {
+            MeldPI.watchConnection("loading");
+
+            widgetEl.addEventListener("change", () => {
+                setEventOptions(widgetEl.value, null);
+                MeldPI.patchSettings({ widget: widgetEl.value, event: eventEl.value });
+                toggleAmountVisibility();
+            });
+            eventEl.addEventListener("change", () => {
+                MeldPI.patchSettings({ event: eventEl.value });
+                toggleAmountVisibility();
+            });
+            amountEl.addEventListener("change", () => {
+                MeldPI.patchSettings({ amount: amountEl.value });
+            });
+
+            MeldPI.onDidReceiveSettings(applySettings);
+            applySettings(MeldPI.getSettings());
+        });
+    </script>
+</body>
+
+</html>

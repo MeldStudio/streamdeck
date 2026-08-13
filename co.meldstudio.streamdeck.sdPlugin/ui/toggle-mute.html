@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.toggle-mute Property Inspector</title>
+    <link rel="stylesheet" href="../libs/css/sdpi.css">
+</head>
+
+<body>
+    <div class="sdpi-wrapper">
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Track</div>
+            <select class="sdpi-item-value select" id="track"></select>
+        </div>
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Action</div>
+            <select class="sdpi-item-value select" id="action">
+                <option value="toggle">Toggle</option>
+                <option value="mute">Mute</option>
+                <option value="unmute">Unmute</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" id="loading" style="display: none;">
+            <div class="sdpi-connecting">Connecting to Meld Studio...</div>
+        </div>
+    </div>
+
+    <script src="lib/meld-pi.js"></script>
+    <script>
+        MeldPI.onReady(() => {
+            MeldPI.watchConnection("loading");
+            MeldPI.bindSessionSelects(["track"]);
+            MeldPI.bindField("action", "toggle");
+        });
+    </script>
+</body>
+
+</html>

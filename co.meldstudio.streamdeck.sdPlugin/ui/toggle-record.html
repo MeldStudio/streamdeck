@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.toggle-record Property Inspector</title>
+    <link rel="stylesheet" href="../libs/css/sdpi.css">
+</head>
+
+<body>
+    <div class="sdpi-wrapper">
+        <div class="sdpi-item">
+            <div class="sdpi-item-label empty"></div>
+            <span class="sdpi-item-value">Press the key to start or stop recording.</span>
+        </div>
+        <div class="sdpi-item" id="loading" style="display: none;">
+            <div class="sdpi-connecting">Connecting to Meld Studio...</div>
+        </div>
+    </div>
+
+    <script src="lib/meld-pi.js"></script>
+    <script>
+        MeldPI.onReady(() => MeldPI.watchConnection("loading"));
+    </script>
+</body>
+
+</html>

@@ -1,2 +1,12 @@
 .DS_Store
 *.streamDeckPlugin
+
+# Node.js
+node_modules/
+
+# Stream Deck build output
+*.sdPlugin/bin
+*.sdPlugin/logs
+
+# SDK log output when run from the repo root
+/logs/

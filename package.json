@@ -1,0 +1,31 @@
+{
+	"name": "meld-studio-streamdeck",
+	"version": "0.6.4.1",
+	"description": "Meld Studio Stream Deck plugin (Node SDK)",
+	"license": "MIT",
+	"type": "module",
+	"scripts": {
+		"build": "rollup -c",
+		"watch": "rollup -c -w --watch.onEnd=\"streamdeck restart co.meldstudio.streamdeck\"",
+		"pack": "npm run build && streamdeck pack co.meldstudio.streamdeck.sdPlugin --force",
+		"typecheck": "tsc --noEmit && tsc -p test",
+		"test": "node --import ./test/register-hooks.js --test --test-concurrency=1 test/*.test.ts",
+		"coverage": "node --import tsx --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/meld/qwebchannel.ts' --test-coverage-lines=90 --test-coverage-branches=79 --test-coverage-functions=75 test/*.test.ts"
+	},
+	"devDependencies": {
+		"@elgato/cli": "^1.7.4",
+		"@rollup/plugin-commonjs": "^29.0.2",
+		"@rollup/plugin-node-resolve": "^15.2.2",
+		"@rollup/plugin-terser": "^1.0.0",
+		"@rollup/plugin-typescript": "^12.1.0",
+		"@tsconfig/node20": "^20.1.2",
+		"@types/node": "~24.1.0",
+		"rollup": "^4.0.2",
+		"tslib": "^2.6.2",
+		"tsx": "^4.23.1",
+		"typescript": "^5.2.2"
+	},
+	"dependencies": {
+		"@elgato/streamdeck": "^2.1.0"
+	}
+}

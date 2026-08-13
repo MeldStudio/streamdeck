@@ -1,0 +1,340 @@
+// Copyright (c) 2024 Meld Studio, Inc.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+//
+// The real ui/lib/meld-pi.js, driven against a fake DOM. It backs the property
+// inspectors of 7 of the 14 actions, and its failures are quiet: a dropdown that
+// silently lists nothing reads as "Meld has no scenes" rather than a plugin
+// fault, and a settings chain left mismatched produces a key that looks
+// configured but does nothing.
+
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { describe, test } from "node:test";
+
+import { FakeDiv, FakeInput, FakeOption, FakeSelect, loadPropertyInspector } from "./helpers/fake-dom.ts";
+
+/** Session items covering two scenes, their layers, and an effect. */
+const ITEMS = {
+	sceneA: { type: "scene", name: "Scene A", current: true, staged: false, vertical: false, index: 0 },
+	sceneB: { type: "scene", name: "Scene B", current: false, staged: false, vertical: false, index: 1 },
+	sceneV: { type: "scene", name: "Scene A [Vertical]", current: false, staged: false, vertical: true, index: 2 },
+	layerA1: { type: "layer", name: "Camera", parent: "sceneA", visible: true, index: 0 },
+	layerA2: { type: "layer", name: "Overlay", parent: "sceneA", visible: false, index: 1 },
+	layerB1: { type: "layer", name: "Slides", parent: "sceneB", visible: true, index: 0 },
+	effectA1: { type: "effect", name: "Blur", parent: "layerA1", enabled: true },
+	trackMic: { type: "track", name: "Microphone", muted: false, monitoring: false },
+};
+
+describe("property inspector runtime", () => {
+	test("the clip inspector offers editable duration presets", () => {
+		const html = readFileSync(
+			new URL("../co.meldstudio.streamdeck.sdPlugin/ui/clip.html", import.meta.url),
+			"utf8",
+		);
+		const presetSelect = html.match(/<select[^>]+id="clipDurationPreset"[^>]*>([\s\S]*?)<\/select>/)?.[1] ?? "";
+		assert.deepEqual(
+			[...presetSelect.matchAll(/<option value="(\d+)"/g)].map((match) => match[1]),
+			["10", "15", "30", "60", "90"],
+		);
+		assert.match(presetSelect, /<option value="custom">Custom…<\/option>/);
+		assert.match(html, /<input[^>]+type="number"[^>]+id="clipDuration"[^>]+min="0"[^>]+max="90"/s);
+		assert.match(html, /MeldPI\.bindEditablePreset\(/);
+	});
+
+	test("editable presets keep custom input and persisted duration synchronized", () => {
+		const pi = loadPropertyInspector({ clipDuration: "42" });
+		const preset = pi.element("clipDurationPreset", new FakeSelect(false));
+		for (const value of ["10", "15", "30", "60", "90", "custom"]) {
+			const option = new FakeOption();
+			option.value = value;
+			preset.appendChild(option);
+		}
+		const custom = pi.element("clipDuration", new FakeInput());
+		const customRow = pi.element("custom-duration-row", new FakeDiv());
+		pi.MeldPI.bindEditablePreset(
+			"clipDuration",
+			"clipDurationPreset",
+			"custom-duration-row",
+			["10", "15", "30", "60", "90"],
+			"90",
+		);
+
+		assert.equal(preset.value, "custom");
+		assert.equal(custom.value, "42");
+		assert.equal(customRow.style.display, "");
+
+		preset.choose("15");
+		assert.equal(custom.value, "15", "a preset must replace the hidden stale custom value");
+		assert.equal(customRow.style.display, "none");
+		assert.equal(pi.MeldPI.getSettings().clipDuration, "15");
+
+		preset.choose("custom");
+		assert.equal(custom.value, "15");
+		assert.equal(customRow.style.display, "");
+		assert.equal(pi.MeldPI.getSettings().clipDuration, "15");
+
+		custom.enter("37");
+		assert.equal(pi.MeldPI.getSettings().clipDuration, "37");
+	});
+
+	test("the shared select styling supplies an explicit dropdown caret", () => {
+		const css = readFileSync(
+			new URL("../co.meldstudio.streamdeck.sdPlugin/libs/css/sdpi.css", import.meta.url),
+			"utf8",
+		);
+		assert.match(css, /background-image:\s*url\(\.\.\/assets\/caret\.svg\)/);
+		assert.match(css, /background-position:\s*right 6px center/);
+		assert.match(css, /select\.no-selection/);
+		assert.match(css, /font-style:\s*italic/);
+	});
+
+	test("every inspector select uses the shared combo styling", () => {
+		const uiDirectory = new URL("../co.meldstudio.streamdeck.sdPlugin/ui/", import.meta.url);
+		for (const file of readdirSync(uiDirectory).filter((name) => name.endsWith(".html"))) {
+			const html = readFileSync(new URL(file, uiDirectory), "utf8");
+			for (const select of html.matchAll(/<select\b[^>]*>/g)) {
+				assert.match(select[0], /class="sdpi-item-value select"/, `${file} must use the shared select style`);
+			}
+		}
+	});
+
+	test("registers with Stream Deck and asks the plugin for the session", () => {
+		const pi = loadPropertyInspector();
+		pi.socket.open();
+
+		const register = pi.socket.framesFor("registerPropertyInspector");
+		assert.equal(register.length, 1, "the inspector must register itself");
+
+		const requests = pi.socket
+			.framesFor("sendToPlugin")
+			.filter((f) => (f.payload as { event?: string })?.event === "meld.getSession");
+		assert.equal(requests.length, 1, "it must ask the plugin for a snapshot on open");
+	});
+
+	test("binding enables the markup-disabled dropdowns", () => {
+		// The inspectors ship these selects disabled so a user cannot pick from an
+		// unpopulated list; binding is the only thing that enables them. Without
+		// this, every scene/layer/effect dropdown would stay greyed out and those
+		// keys could not be configured at all.
+		const pi = loadPropertyInspector();
+		const scene = pi.element("scene", new FakeSelect());
+		const layer = pi.element("layer", new FakeSelect());
+		assert.equal(scene.disabled, true, "the markup starts them disabled");
+
+		pi.MeldPI.bindSessionSelects(["scene", "layer"]);
+
+		assert.equal(scene.disabled, false, "binding must enable the root select");
+		assert.equal(layer.disabled, false, "binding must enable chained selects too");
+	});
+
+	test("a root select lists every item of its type", () => {
+		const pi = loadPropertyInspector();
+		const scene = pi.element("scene", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene"]);
+		pi.pushSession(ITEMS);
+
+		assert.deepEqual(scene.labels, ["No Selection", "Scene A", "Scene B", "Scene A [Vertical]"]);
+		assert.equal(scene.value, "", "nothing configured means no selection");
+		assert.equal(scene.classList.contains("no-selection"), true, "the empty state should be visually muted");
+	});
+
+	test("a keepFilter hides items the action cannot use", () => {
+		// show-scene filters out the vertical twins Meld publishes.
+		const pi = loadPropertyInspector();
+		const scene = pi.element("scene", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene"], (type, item) =>
+			type === "scene" ? !(item as { vertical?: boolean }).vertical : true,
+		);
+		pi.pushSession(ITEMS);
+
+		assert.deepEqual(scene.labels, ["No Selection", "Scene A", "Scene B"]);
+	});
+
+	test("a child select lists only the chosen parent's children", () => {
+		const pi = loadPropertyInspector({ scene: "sceneA" });
+		const scene = pi.element("scene", new FakeSelect());
+		const layer = pi.element("layer", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene", "layer"]);
+		pi.pushSession(ITEMS);
+
+		assert.equal(scene.value, "sceneA");
+		assert.deepEqual(layer.labels, ["No Selection", "Camera", "Overlay"]);
+		assert.equal(layer.values.includes("layerB1"), false, "another scene's layer must not be offered");
+	});
+
+	test("a child select is empty while no parent is chosen", () => {
+		// Otherwise the user could pick a layer that belongs to no selected scene.
+		const pi = loadPropertyInspector();
+		pi.element("scene", new FakeSelect());
+		const layer = pi.element("layer", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene", "layer"]);
+		pi.pushSession(ITEMS);
+
+		assert.deepEqual(layer.labels, ["No Selection"]);
+	});
+
+	test("changing a parent clears every downstream id in one write", () => {
+		const pi = loadPropertyInspector({ scene: "sceneA", layer: "layerA1", effect: "effectA1" });
+		const scene = pi.element("scene", new FakeSelect());
+		pi.element("layer", new FakeSelect());
+		pi.element("effect", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene", "layer", "effect"]);
+		pi.pushSession(ITEMS);
+		pi.socket.open();
+		pi.socket.sent.length = 0;
+
+		scene.choose("sceneB");
+
+		const writes = pi.socket.framesFor("setSettings");
+		assert.equal(writes.length, 1, "one atomic write, never a half-updated chain");
+		assert.deepEqual(writes[0].payload, { scene: "sceneB", layer: "", effect: "" });
+	});
+
+	test("a stale child id shows No Selection rather than a blank control", () => {
+		// Legacy profiles hold pairs like {scene: B, layer: <child of A>} because the
+		// old inspector never cleared downstream keys.
+		const pi = loadPropertyInspector({ scene: "sceneB", layer: "layerA1" });
+		const scene = pi.element("scene", new FakeSelect());
+		const layer = pi.element("layer", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene", "layer"]);
+		pi.pushSession(ITEMS);
+
+		assert.equal(scene.value, "sceneB");
+		assert.equal(layer.selectedIndex, 0, "a stale id must fall back to the placeholder");
+		assert.equal(layer.labels[0], "No Selection");
+		assert.deepEqual(layer.labels, ["No Selection", "Slides"], "only the new parent's children are offered");
+		assert.equal(layer.classList.contains("no-selection"), true);
+	});
+
+	test("a stale mid-chain id does not unfilter the select below it", () => {
+		// With the layer reset to the placeholder, the effect list must stay empty
+		// rather than offering every effect in the session.
+		const pi = loadPropertyInspector({ scene: "sceneB", layer: "layerA1", effect: "effectA1" });
+		pi.element("scene", new FakeSelect());
+		const layer = pi.element("layer", new FakeSelect());
+		const effect = pi.element("effect", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene", "layer", "effect"]);
+		pi.pushSession(ITEMS);
+
+		assert.equal(layer.value, "", "the stale layer resolves to no selection");
+		assert.deepEqual(effect.labels, ["No Selection"], "no effect may be offered without a layer");
+	});
+
+	test("selects repopulate when a new Meld instance publishes different ids", () => {
+		const pi = loadPropertyInspector({ scene: "sceneA" });
+		const scene = pi.element("scene", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene"]);
+		pi.pushSession(ITEMS);
+		assert.equal(scene.value, "sceneA");
+
+		// A different project: all-new ids.
+		pi.pushSession({
+			fresh1: { type: "scene", name: "Live", current: true, staged: false, vertical: false, index: 0 },
+		});
+
+		assert.deepEqual(scene.labels, ["No Selection", "Live"]);
+		assert.equal(scene.selectedIndex, 0, "the old id is gone, so the placeholder shows");
+	});
+
+	test("an empty session leaves only the placeholder", () => {
+		const pi = loadPropertyInspector();
+		const track = pi.element("track", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["track"]);
+		pi.pushSession({}, false);
+
+		assert.deepEqual(track.labels, ["No Selection"]);
+	});
+
+	test("choosing an item persists exactly that id", () => {
+		const pi = loadPropertyInspector();
+		const track = pi.element("track", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["track"]);
+		pi.pushSession(ITEMS);
+		pi.socket.open();
+		pi.socket.sent.length = 0;
+
+		track.choose("trackMic");
+
+		const writes = pi.socket.framesFor("setSettings");
+		assert.equal(writes.length, 1);
+		assert.deepEqual(writes[0].payload, { track: "trackMic" });
+		assert.equal(track.classList.contains("no-selection"), false);
+	});
+
+	test("bindField applies its fallback when the setting is absent", () => {
+		const pi = loadPropertyInspector();
+		const step = pi.element("stepsize", new FakeInput());
+		pi.MeldPI.bindField("stepsize", "1");
+
+		assert.equal(step.value, "1", "the inspector shows the documented default");
+	});
+
+	test("bindField shows the stored value over the fallback", () => {
+		const pi = loadPropertyInspector({ stepsize: "3" });
+		const step = pi.element("stepsize", new FakeInput());
+		pi.MeldPI.bindField("stepsize", "1");
+
+		assert.equal(step.value, "3");
+	});
+
+	test("editing a field persists it without disturbing other settings", () => {
+		const pi = loadPropertyInspector({ track: "trackMic", metertype: "db" });
+		const step = pi.element("stepsize", new FakeInput());
+		pi.MeldPI.bindField("stepsize", "1");
+		pi.socket.open();
+		pi.socket.sent.length = 0;
+
+		step.enter("5");
+
+		const writes = pi.socket.framesFor("setSettings");
+		assert.equal(writes.length, 1);
+		assert.deepEqual(writes[0].payload, { track: "trackMic", metertype: "db", stepsize: "5" });
+	});
+
+	test("settings pushed by Stream Deck are reflected in the controls", () => {
+		const pi = loadPropertyInspector({ scene: "sceneA" });
+		const scene = pi.element("scene", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene"]);
+		pi.pushSession(ITEMS);
+		assert.equal(scene.value, "sceneA");
+
+		pi.pushSettings({ scene: "sceneB" });
+		assert.equal(scene.value, "sceneB", "an external settings change must move the control");
+	});
+
+	test("watchConnection reveals its notice before any snapshot arrives", () => {
+		// The markup ships the notice hidden, so it only appears because binding
+		// fires once immediately with the assumed-disconnected state. Starting the
+		// element hidden is what makes this assertion able to fail.
+		const pi = loadPropertyInspector();
+		const loading = pi.element("loading", new FakeDiv());
+		assert.equal(loading.style.display, "none", "the markup starts the notice hidden");
+
+		pi.MeldPI.watchConnection("loading");
+		assert.equal(loading.style.display, "", "binding must reveal the notice straight away");
+
+		pi.pushSession(ITEMS, true);
+		assert.equal(loading.style.display, "none");
+
+		pi.pushSession({}, false);
+		assert.equal(loading.style.display, "", "losing Meld must bring the notice back");
+	});
+
+	test("a malformed frame is ignored rather than breaking the inspector", () => {
+		const pi = loadPropertyInspector();
+		const scene = pi.element("scene", new FakeSelect());
+		pi.MeldPI.bindSessionSelects(["scene"]);
+
+		assert.doesNotThrow(() => pi.socket.onmessage?.({ data: "not json" }));
+		pi.pushSession(ITEMS);
+		assert.deepEqual(scene.labels, ["No Selection", "Scene A", "Scene B", "Scene A [Vertical]"]);
+	});
+
+	test("binding an id with no matching element is harmless", () => {
+		// Several inspectors bind a field their markup omits.
+		const pi = loadPropertyInspector();
+		assert.doesNotThrow(() => pi.MeldPI.bindSessionSelects(["scene", "layer"]));
+		assert.doesNotThrow(() => pi.MeldPI.bindField("action", "toggle"));
+		assert.doesNotThrow(() => pi.MeldPI.watchConnection("loading"));
+	});
+});

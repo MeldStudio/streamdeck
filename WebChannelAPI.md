@@ -503,7 +503,7 @@ _Side Effects_: Once streaming starts, the `channel`'s `isStreaming` property wi
 meld.toggleStream();
 ```
 
-#### **`registerTrackObserver(trackId: string, context: string)`**
+#### **`registerTrackObserver(context: string, trackId: string)`**
 
 Registers an observer for changes to a specific track.
 
@@ -519,7 +519,7 @@ const trackId = /* desired track id */;
 meld.registerTrackObserver("documentation-context", trackId);
 ```
 
-#### **`unregisterTrackObserver(trackId: string, context: string)`**
+#### **`unregisterTrackObserver(context: string, trackId: string)`**
 
 Unregisters an observer for a specific track.
 
@@ -615,6 +615,25 @@ meld.sendCommand("meld.screenshot");
 | `meld.recordClip`                | Records a clip.                   |
 | `meld.replay.show`               | Show replay layer for last clip.  |
 | `meld.replay.dismiss`            | Dismiss all active replay layers. |
+
+#### **`sendCommandWithArgs(commandName: string, args: any[])`**
+
+Triggers a custom command with positional arguments.
+
+**Parameters**:
+
+| property | type       | description                         |
+| -------- | ---------- | ----------------------------------- |
+| commandName | `string` | Command to trigger in Meld.           |
+| args        | `any[]`  | Positional arguments for the command. |
+
+```js
+meld.sendCommandWithArgs("meld.recordClip", [30]);
+```
+
+`meld.recordClip` accepts at most one argument: a finite, non-negative clip
+duration in seconds. Its advertised range is 0–90 seconds; omitting the
+argument, or passing `0`, records the maximum available duration.
 
 #### **`sendStreamEvent(type: string, data?: any)`**
 
