@@ -11,7 +11,7 @@
 	},
 	"Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
 	"URL": "https://meldstudio.co",
-	"Version": "0.6.4.0",
+	"Version": "0.6.4.1",
 	"UUID": "co.meldstudio.streamdeck",
 	"OS": [
 		{
@@ -32,10 +32,10 @@
 			"Name": "Change Scene",
 			"States": [
 				{
-					"Image": "assets/Scenes/Change to Scene/Key Icon/sceneOff"
+					"Image": "assets/Scenes/Change to Scene/Key Icon/sceneOn"
 				},
 				{
-					"Image": "assets/Scenes/Change to Scene/Key Icon/sceneOn"
+					"Image": "assets/Scenes/Change to Scene/Key Icon/sceneOff"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -75,10 +75,10 @@
 			"Name": "Mute Track",
 			"States": [
 				{
-					"Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/mutedTrack"
+					"Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/audio-unmuted"
 				},
 				{
-					"Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/audio-unmuted"
+					"Image": "assets/Audio Track/Mute_Unmute Audio Track/Key Icons/mutedTrack"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -92,10 +92,10 @@
 			"Name": "Cue Track",
 			"States": [
 				{
-					"Image": "assets/Cue/key icon/cueOff"
+					"Image": "assets/Cue/key icon/cueOn"
 				},
 				{
-					"Image": "assets/Cue/key icon/cueOn"
+					"Image": "assets/Cue/key icon/cueOff"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -157,10 +157,10 @@
 			"Name": "Layer Visibility",
 			"States": [
 				{
-					"Image": "assets/Layers/Layer Visibility/Key Icon/layerHide"
+					"Image": "assets/Layers/Layer Visibility/Key Icon/layerShow"
 				},
 				{
-					"Image": "assets/Layers/Layer Visibility/Key Icon/layerShow"
+					"Image": "assets/Layers/Layer Visibility/Key Icon/layerHide"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -174,10 +174,10 @@
 			"Name": "Effect Visibility",
 			"States": [
 				{
-					"Image": "assets/Effects/Key Icons/hideEffect"
+					"Image": "assets/Effects/Key Icons/showEffect"
 				},
 				{
-					"Image": "assets/Effects/Key Icons/showEffect"
+					"Image": "assets/Effects/Key Icons/hideEffect"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -191,10 +191,10 @@
 			"Name": "Record",
 			"States": [
 				{
-					"Image": "assets/Record/Key Icon/startRecord"
+					"Image": "assets/Record/Key Icon/stopRecord"
 				},
 				{
-					"Image": "assets/Record/Key Icon/stopRecord"
+					"Image": "assets/Record/Key Icon/startRecord"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -208,10 +208,10 @@
 			"Name": "Go Live",
 			"States": [
 				{
-					"Image": "assets/Go live/Key Icons/goLive"
+					"Image": "assets/Go live/Key Icons/goOffiline"
 				},
 				{
-					"Image": "assets/Go live/Key Icons/goOffiline"
+					"Image": "assets/Go live/Key Icons/goLive"
 				}
 			],
 			"SupportedInMultiActions": true,

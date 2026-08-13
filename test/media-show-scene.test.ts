@@ -357,13 +357,13 @@ describe("Media and ShowScene", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, { scene: ids.other }) as never);
 		await sleep(60);
-		assert.equal(key.state, 0, "a scene that is not current starts unlit");
+		assert.equal(key.state, 1, "a scene that is not current starts unlit");
 
 		await press(action, key, { scene: ids.other });
 		await sleep(120);
 
 		assert.equal(server.methods.showScene.mock.callCount(), 1);
-		assert.equal(key.state, 1, "the key lights for the scene that actually went live");
+		assert.equal(key.state, 0, "the key lights for the scene that actually went live");
 		assert.equal((server.session.items[ids.other] as { current: boolean }).current, true);
 	});
 
@@ -396,7 +396,7 @@ describe("Media and ShowScene", () => {
 
 			await press(action, key, { scene: slowIds.other });
 			await sleep(100);
-			assert.equal(key.state, 1, "the press lights the key immediately");
+			assert.equal(key.state, 0, "the press lights the key immediately");
 
 			// A repaint driven by something other than the session — here a recording
 			// change — re-renders from the snapshot, which still shows the old current
@@ -416,9 +416,9 @@ describe("Media and ShowScene", () => {
 
 			// Let the edits stop so the snapshot finally lands.
 			await sleep(800);
-			assert.equal(key.state, 1, "the key is lit once the confirmation arrives");
+			assert.equal(key.state, 0, "the key is lit once the confirmation arrives");
 			assert.ok(
-				!key.states.includes(0),
+				!key.states.includes(1),
 				`the key must never blink dark while waiting; painted ${JSON.stringify(key.states)}`,
 			);
 
@@ -476,7 +476,7 @@ describe("Media and ShowScene", () => {
 
 			second.reset();
 			await press(action, second, { scene: slowIds.third });
-			assert.equal(second.state, 1, "the second press lights its own key");
+			assert.equal(second.state, 0, "the second press lights its own key");
 
 			// Past the FIRST key's TTL, still inside the second's.
 			await sleep(2_400);
@@ -484,7 +484,7 @@ describe("Media and ShowScene", () => {
 			await churn;
 
 			assert.ok(
-				!second.states.includes(0),
+				!second.states.includes(1),
 				`the second key must not be darkened by the first key's expiry; painted ${JSON.stringify(second.states)}`,
 			);
 		} finally {
@@ -519,7 +519,7 @@ describe("Media and ShowScene", () => {
 
 		await press(action, key, {});
 
-		assert.equal(key.state, 0);
+		assert.equal(key.state, 1);
 		assert.equal(server.methods.showScene.mock.callCount(), 0);
 	});
 });

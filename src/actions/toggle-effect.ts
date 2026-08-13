@@ -17,7 +17,7 @@ type ToggleEffectSettings = {
 /** Toggles (or forces) an effect's enabled state within a layer. */
 @action({ UUID: "co.meldstudio.streamdeck.toggle-effect" })
 export class ToggleEffect extends SessionToggleAction<ToggleEffectSettings> {
-	protected readonly missingItemState = 0;
+	protected readonly missingItemState = 1;
 	protected readonly forceOnValue = "show";
 
 	protected targetOf(settings: ToggleEffectSettings): string | undefined {

@@ -16,7 +16,7 @@ type ToggleLayerSettings = {
 /** Toggles (or forces) a layer's visibility within a scene. */
 @action({ UUID: "co.meldstudio.streamdeck.toggle-layer" })
 export class ToggleLayer extends SessionToggleAction<ToggleLayerSettings> {
-	protected readonly missingItemState = 0;
+	protected readonly missingItemState = 1;
 	protected readonly forceOnValue = "show";
 
 	protected targetOf(settings: ToggleLayerSettings): string | undefined {

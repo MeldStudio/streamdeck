@@ -9,14 +9,14 @@ import { MeldAction, type RenderArgs } from "./base.js";
 /** Goes live or offline, reflecting Meld's authoritative streaming state. */
 @action({ UUID: "co.meldstudio.streamdeck.toggle-stream" })
 export class ToggleStream extends MeldAction {
-	/** Reflects the current streaming state on the key (state 1 = live). */
+	/** Reflects the current streaming state on the key (state 0 = live). */
 	protected async render({ action, reason }: RenderArgs<JsonObject>): Promise<void> {
 		// While disconnected there is nothing authoritative to show; keep the last
 		// state rather than flashing "offline" on a connection blip.
 		if (!this.meld.ready && reason !== "willAppear") {
 			return;
 		}
-		await this.setKeyState(action, this.isStreaming ? 1 : 0);
+		await this.setKeyState(action, this.isStreaming ? 0 : 1);
 	}
 
 	/** @inheritdoc */

@@ -48,7 +48,7 @@ export class ShowScene extends MeldAction<ShowSceneSettings> {
 		}
 		// Optimistically light the key; the next session update confirms it.
 		this.#requested.set(ev.action.id, scene);
-		void this.setKeyState(ev.action, 1);
+		void this.setKeyState(ev.action, 0);
 		this.meld.meld?.showScene?.(scene);
 	}
 
@@ -81,18 +81,18 @@ export class ShowScene extends MeldAction<ShowSceneSettings> {
 
 		const scene = settings.scene;
 		if (!scene) {
-			return void this.setKeyState(action, 0);
+			return void this.setKeyState(action, 1);
 		}
 		// No snapshot yet: leave the current visual untouched to avoid a flash.
 		if (!session.isPresent) {
 			return;
 		}
 		if (!session.has(scene)) {
-			return void this.setKeyState(action, 0);
-		}
-		if (this.#requested.get(action.id) === scene) {
 			return void this.setKeyState(action, 1);
 		}
-		await this.setKeyState(action, session.getScene(scene)?.current ? 1 : 0);
+		if (this.#requested.get(action.id) === scene) {
+			return void this.setKeyState(action, 0);
+		}
+		await this.setKeyState(action, session.getScene(scene)?.current ? 0 : 1);
 	}
 }

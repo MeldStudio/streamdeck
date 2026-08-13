@@ -71,9 +71,9 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 	 */
 	protected abstract currentValue(settings: T, session: MeldSession): boolean | null;
 
-	/** Maps the authoritative boolean to the key's state. Overridden by mute (inverted). */
+	/** Maps the authoritative boolean to the key's state (state 0 = active). */
 	protected valueToKeyState(value: boolean): 0 | 1 {
-		return value ? 1 : 0;
+		return value ? 0 : 1;
 	}
 
 	/** Toggles the property via Meld. */

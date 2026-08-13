@@ -1,6 +1,6 @@
 {
 	"name": "meld-studio-streamdeck",
-	"version": "0.6.4.0",
+	"version": "0.6.4.1",
 	"description": "Meld Studio Stream Deck plugin (Node SDK)",
 	"license": "MIT",
 	"type": "module",

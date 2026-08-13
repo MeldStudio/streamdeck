@@ -15,7 +15,7 @@ type ToggleMuteSettings = {
 /** Toggles (or forces) an audio track's mute state. */
 @action({ UUID: "co.meldstudio.streamdeck.toggle-mute" })
 export class ToggleMute extends SessionToggleAction<ToggleMuteSettings> {
-	// When the track is gone, the manifest's "unmuted" state (1) is shown.
+	// When the track is gone, the manifest's "muted" state (1) is shown.
 	protected readonly missingItemState = 1;
 	protected readonly forceOnValue = "mute";
 
@@ -36,9 +36,9 @@ export class ToggleMute extends SessionToggleAction<ToggleMuteSettings> {
 		return track ? track.muted : null;
 	}
 
-	/** State 0 = muted, state 1 = unmuted. */
+	/** Active (state 0) means the speaker icon: not muted. */
 	protected override valueToKeyState(muted: boolean): 0 | 1 {
-		return muted ? 0 : 1;
+		return muted ? 1 : 0;
 	}
 
 	protected toggle(settings: ToggleMuteSettings): void {

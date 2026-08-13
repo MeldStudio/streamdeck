@@ -89,7 +89,7 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, { scene: ids.sceneA, layer: ids.layerA }) as never);
 		await sleep(40);
-		assert.equal(key.state, 1, "a visible layer shows state 1");
+		assert.equal(key.state, 0, "a visible layer shows state 0");
 	});
 
 	test("pressing a layer key toggles it in Meld", async () => {
@@ -105,7 +105,7 @@ describe("session toggles", () => {
 		const calls = server.methods.toggleLayer.mock.calls;
 		assert.equal(calls.length, 1);
 		assert.deepEqual(calls[0].arguments, [ids.sceneA, ids.layerA]);
-		assert.equal(key.state, 0, "the key should follow Meld's new visibility");
+		assert.equal(key.state, 1, "the key should follow Meld's new visibility");
 	});
 
 	test("an unconfirmed toggle does not leak into a restarted Meld instance", async () => {
@@ -116,7 +116,7 @@ describe("session toggles", () => {
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await press(action, key, settings);
 		await sleep(40);
-		assert.equal(key.state, 0, "the in-flight press is painted immediately");
+		assert.equal(key.state, 1, "the in-flight press is painted immediately");
 
 		const closed = new Promise<void>((resolve) => {
 			const off = connection.on("closed", () => {
@@ -138,7 +138,7 @@ describe("session toggles", () => {
 		await ready;
 		await sleep(60);
 
-		assert.equal(key.state, 1, "the restarted instance's visible layer is authoritative");
+		assert.equal(key.state, 0, "the restarted instance's visible layer is authoritative");
 	});
 
 	test("an existing profile's stale scene still toggles the intended layer", async () => {
@@ -152,7 +152,7 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(40);
-		assert.equal(key.state, 1, "the key must still track the intended layer, not go dark");
+		assert.equal(key.state, 0, "the key must still track the intended layer, not go dark");
 
 		await press(action, key, settings);
 		await sleep(120);
@@ -173,7 +173,7 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(40);
-		assert.equal(key.state, 1, "an enabled effect shows state 1 despite the stale layer");
+		assert.equal(key.state, 0, "an enabled effect shows state 0 despite the stale layer");
 
 		await press(action, key, settings);
 		await sleep(120);
@@ -216,7 +216,7 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(40);
-		assert.equal(key.state, 1, "the layer starts visible");
+		assert.equal(key.state, 0, "the layer starts visible");
 
 		await press(action, key, settings);
 		await sleep(120);
@@ -227,7 +227,7 @@ describe("session toggles", () => {
 			true,
 			"the layer must still be visible",
 		);
-		assert.equal(key.state, 1);
+		assert.equal(key.state, 0);
 	});
 
 	test("force mode without a direct setter toggles when the state differs", async () => {
@@ -238,14 +238,14 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(40);
-		assert.equal(key.state, 0, "the layer starts hidden");
+		assert.equal(key.state, 1, "the layer starts hidden");
 
 		await press(action, key, settings);
 		await sleep(120);
 
 		assert.equal(server.methods.toggleLayer.mock.callCount(), 1, "a differing state must toggle once");
 		assert.equal((server.session.items[ids.layerB] as { visible: boolean }).visible, true);
-		assert.equal(key.state, 1);
+		assert.equal(key.state, 0);
 	});
 
 	test("layer and effect hide modes are idempotent force operations", async () => {
@@ -259,7 +259,7 @@ describe("session toggles", () => {
 		await sleep(80);
 		assert.equal(server.methods.toggleLayer.mock.callCount(), 1, "repeated hide must not reveal the layer");
 		assert.deepEqual(server.methods.toggleLayer.mock.calls.at(-1)?.arguments, [ids.sceneA, ids.layerA]);
-		assert.equal(layerKey.state, 0);
+		assert.equal(layerKey.state, 1);
 
 		server.resetCalls();
 		const effectSettings = {
@@ -281,7 +281,7 @@ describe("session toggles", () => {
 			ids.layerA,
 			ids.effectA,
 		]);
-		assert.equal(effectKey.state, 0);
+		assert.equal(effectKey.state, 1);
 	});
 
 	test("force mode is idempotent and does not fake a state for a missing track", async () => {
@@ -297,7 +297,7 @@ describe("session toggles", () => {
 		await sleep(120);
 		const directCalls = server.methods.setMuted.mock.callCount() + server.methods.setProperty.mock.callCount();
 		assert.ok(directCalls >= 1, "force mode should use the direct setter");
-		assert.equal(key.state, 0, "state 0 is muted for this action");
+		assert.equal(key.state, 1, "state 1 is muted for this action");
 
 		// The same press against a track that does not exist must be inert.
 		server.resetCalls();
@@ -326,7 +326,7 @@ describe("session toggles", () => {
 		assert.deepEqual(key.settingsWrites, [
 			{ scene: ids.sceneA, layer: ids.layerA, effect: ids.effectAtIndex1, action: "toggle" },
 		]);
-		assert.equal(key.state, 1, "the indexed setting should render from the resolved stable effect");
+		assert.equal(key.state, 0, "the indexed setting should render from the resolved stable effect");
 
 		// Exercise a press carrying the pre-migration payload: Stream Deck can echo
 		// setSettings after the user has already pressed the key.
@@ -338,7 +338,7 @@ describe("session toggles", () => {
 			ids.layerA,
 			ids.effectAtIndex1,
 		]);
-		assert.equal(key.state, 0);
+		assert.equal(key.state, 1);
 	});
 
 	test("an unresolvable effect id is inert", async () => {
@@ -366,7 +366,7 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(60);
-		assert.equal(key.state, 0, "the layer starts hidden");
+		assert.equal(key.state, 1, "the layer starts hidden");
 
 		await press(action, key, settings);
 		// Meld's autosave is retriggerable, so ordinary concurrent activity keeps
@@ -385,14 +385,14 @@ describe("session toggles", () => {
 			true,
 			"two 'show' presses must leave the layer visible",
 		);
-		assert.equal(key.state, 1);
+		assert.equal(key.state, 0);
 		// Sampling only the final state would miss a key that flashed back to
 		// "hidden" while waiting — which is what a TTL shorter than the
-		// confirmation latency produces. (Repeats of 1 are expected: a key press
+		// confirmation latency produces. (Repeats of 0 are expected: a key press
 		// clears the dedupe cache, so the idempotent second press repaints.)
 		assert.deepEqual(
 			key.states.slice(1),
-			key.states.slice(1).map(() => 1),
+			key.states.slice(1).map(() => 0),
 			`the key must never go dark after lighting; painted ${JSON.stringify(key.states)}`,
 		);
 	});
@@ -406,11 +406,11 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(60);
-		assert.equal(key.state, 1, "the layer starts visible");
+		assert.equal(key.state, 0, "the layer starts visible");
 
 		await press(action, key, settings);
 		await sleep(50); // well inside the debounce
-		assert.equal(key.state, 0, "the key must follow the press without waiting for Meld");
+		assert.equal(key.state, 1, "the key must follow the press without waiting for Meld");
 	});
 
 	test("an unrelated repaint during the wait does not undo the press", async () => {
@@ -423,7 +423,7 @@ describe("session toggles", () => {
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		await sleep(60);
-		assert.equal(key.state, 1, "the layer starts visible");
+		assert.equal(key.state, 0, "the layer starts visible");
 
 		await press(action, key, settings);
 		key.reset();
@@ -431,7 +431,7 @@ describe("session toggles", () => {
 		await sleep(150);
 
 		assert.ok(
-			!key.states.includes(1),
+			!key.states.includes(0),
 			`the key must stay dark while the press is pending; painted ${JSON.stringify(key.states)}`,
 		);
 		server.setRecording(false);
@@ -458,7 +458,7 @@ describe("session toggles", () => {
 		await retarget(action, key, second);
 		await sleep(60);
 
-		assert.equal(key.state, 0, "the key must show the new layer's own state, not the old pending one");
+		assert.equal(key.state, 1, "the key must show the new layer's own state, not the old pending one");
 		server.resetCalls();
 
 		await press(action, key, second);

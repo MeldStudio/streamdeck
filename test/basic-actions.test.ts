@@ -117,8 +117,8 @@ describe("basic Meld actions", () => {
 		mount(stream, [streamKey]);
 		await record.onWillAppear(willAppear(recordKey, {}) as never);
 		await stream.onWillAppear(willAppear(streamKey, {}) as never);
-		assert.equal(recordKey.state, 0);
-		assert.equal(streamKey.state, 0);
+		assert.equal(recordKey.state, 1);
+		assert.equal(streamKey.state, 1);
 
 		await press(record, recordKey, {});
 		await press(stream, streamKey, {});
@@ -126,8 +126,8 @@ describe("basic Meld actions", () => {
 
 		assert.equal(server.methods.toggleRecord.mock.callCount(), 1);
 		assert.equal(server.methods.toggleStream.mock.callCount(), 1);
-		assert.equal(recordKey.state, 1);
-		assert.equal(streamKey.state, 1);
+		assert.equal(recordKey.state, 0);
+		assert.equal(streamKey.state, 0);
 	});
 
 	test("monitor and widget settings reach the direct mocked API", async () => {
@@ -171,7 +171,7 @@ describe("basic Meld actions", () => {
 			server.methods.setMuted.mock.calls.slice(-2).map((call) => call.arguments),
 			[[trackId, true], [trackId, false]],
 		);
-		assert.equal(muteKey.state, 1, "the unmute mode paints the unmuted state");
+		assert.equal(muteKey.state, 0, "the unmute mode paints the unmuted state");
 
 		const monitor = new ToggleMonitor(connection);
 		const monitorKey = new FakeActionInstance("monitor-modes", { track: trackId, action: "toggle" });
@@ -187,7 +187,7 @@ describe("basic Meld actions", () => {
 			server.methods.setProperty.mock.calls.slice(-2).map((call) => call.arguments),
 			[[trackId, "monitoring", true], [trackId, "monitoring", false]],
 		);
-		assert.equal(monitorKey.state, 0, "the uncue mode paints the unmonitored state");
+		assert.equal(monitorKey.state, 1, "the uncue mode paints the unmonitored state");
 	});
 
 	test("every widget event dispatches with its matching icon and payload shape", async () => {
