@@ -34,10 +34,10 @@ describe("property inspector runtime", () => {
 		const presetSelect = html.match(/<select[^>]+id="clipDurationPreset"[^>]*>([\s\S]*?)<\/select>/)?.[1] ?? "";
 		assert.deepEqual(
 			[...presetSelect.matchAll(/<option value="(\d+)"/g)].map((match) => match[1]),
-			["10", "15", "30", "60", "90"],
+			["10", "15", "30", "60", "90", "120"],
 		);
 		assert.match(presetSelect, /<option value="custom">Custom…<\/option>/);
-		assert.match(html, /<input[^>]+type="number"[^>]+id="clipDuration"[^>]+min="0"[^>]+max="90"/s);
+		assert.match(html, /<input[^>]+type="number"[^>]+id="clipDuration"[^>]+min="0"[^>]+max="120"/s);
 		assert.match(html, /MeldPI\.bindEditablePreset\(/);
 	});
 
