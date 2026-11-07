@@ -115,8 +115,8 @@ describe("durable settings migrations", () => {
 		{
 			name: "clip clamps hand-edited durations to Meld's advertised maximum",
 			create: (c) => new Clip(c) as unknown as MeldAction<JsonObject>,
-			input: () => ({ clipDuration: "120", future }),
-			expected: () => ({ clipDuration: "90", future }),
+			input: () => ({ clipDuration: "150", future }),
+			expected: () => ({ clipDuration: "120", future }),
 		},
 		{
 			name: "toggle-layer derives the scene from the selected layer",

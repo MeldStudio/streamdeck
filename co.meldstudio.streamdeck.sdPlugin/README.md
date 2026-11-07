@@ -12,6 +12,9 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
+Version 0.6.4.2
+- Raised the Record Clip action's maximum duration to 120 seconds, matching Meld Studio's supported clip length.
+
 Version 0.6.4.1
 - Added configurable durations to the Record Clip action. Choose a 10, 15, 30, 60, or 90 second preset, or enter a custom duration from 0 to 90 seconds.
 - Improved action state synchronization and recovery after Meld Studio reconnects and session restores.
@@ -34,6 +37,12 @@ hi@meldstudio.co
 ------------
 # Change History:
 ------------
+
+## 2026-08-14 (v0.6.4.2)
+### Changes:
+-----------
+- Raised the Record Clip action's maximum duration to 120 seconds, matching Meld Studio's supported clip length.
+
 
 ## 2026-08-12 (v0.6.4.1)
 ### Changes:

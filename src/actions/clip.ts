@@ -11,7 +11,7 @@ type ClipSettings = {
 };
 
 const DEFAULT_CLIP_DURATION = 90;
-const MAX_CLIP_DURATION = 90;
+const MAX_CLIP_DURATION = 120;
 
 /** Records a configurable-duration clip to disk. */
 @action({ UUID: "co.meldstudio.streamdeck.clip" })
@@ -40,7 +40,7 @@ export class Clip extends MeldAction<ClipSettings> {
 		}
 	}
 
-	/** Normalizes user input to Meld's advertised finite 0–90 second range. */
+	/** Normalizes user input to Meld's advertised finite 0–120 second range. */
 	#duration(value: string | number | null | undefined): number {
 		const parsed = value == null || (typeof value === "string" && value.trim() === "") ? Number.NaN : Number(value);
 		if (!Number.isFinite(parsed)) {
