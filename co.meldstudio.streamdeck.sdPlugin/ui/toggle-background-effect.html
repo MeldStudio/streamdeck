@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2024 Meld Studio, Inc.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>co.meldstudio.streamdeck.toggle-background-effect Property Inspector</title>
+    <link rel="stylesheet" href="../libs/css/sdpi.css">
+</head>
+
+<body>
+    <div class="sdpi-wrapper">
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Scene</div>
+            <select class="sdpi-item-value select" id="scene" disabled></select>
+        </div>
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Camera</div>
+            <select class="sdpi-item-value select" id="layer" disabled></select>
+        </div>
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Action</div>
+            <select class="sdpi-item-value select" id="action">
+                <option value="toggle">Toggle</option>
+                <option value="enable">Enable</option>
+                <option value="disable">Disable</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" id="state-unavailable" style="display: none;">
+            <details class="message caution">
+                <summary>Meld Studio reported no camera layers.</summary>
+                <p>Older Meld Studio versions do not identify cameras or report their background state: every layer
+                    is listed, and only Enable and Disable work. Update Meld Studio to use Toggle.</p>
+            </details>
+        </div>
+
+        <div class="sdpi-item" id="loading" style="display: none;">
+            <div class="sdpi-connecting">Connecting to Meld Studio...</div>
+        </div>
+    </div>
+
+    <script src="lib/meld-pi.js"></script>
+    <script>
+        MeldPI.onReady(() => {
+            MeldPI.watchConnection("loading");
+
+            const FIELD = "backgroundEffectEnabled";
+            const hasField = (item) => Object.prototype.hasOwnProperty.call(item, FIELD);
+
+            // Meld publishes `backgroundEffectEnabled` on camera layers only, which
+            // is what identifies them. A session with no such layer either has no
+            // cameras or comes from a Meld build that predates the field; listing
+            // every layer in that case keeps Enable / Disable configurable there.
+            let cameraFieldPublished = false;
+            MeldPI.onSession((s) => {
+                cameraFieldPublished = Object.values(s.items).some(
+                    (item) => item.type === "layer" && hasField(item),
+                );
+                const unavailable = document.getElementById("state-unavailable");
+                unavailable.style.display = s.connected && !cameraFieldPublished ? "" : "none";
+            });
+
+            // Only scenes that are not vertical, and only camera layers once Meld identifies them.
+            MeldPI.bindSessionSelects(["scene", "layer"], (type, item) => {
+                if (type === "layer") {
+                    return !cameraFieldPublished || hasField(item);
+                }
+                if (type === "scene") {
+                    return !item.vertical;
+                }
+                return true;
+            });
+            MeldPI.bindField("action", "toggle");
+        });
+    </script>
+</body>
+
+</html>

@@ -26,11 +26,22 @@
         "Name": "Ao vivo",
         "Tooltip": "Inicie ou encerre uma transmissão"
     },
+    "co.meldstudio.streamdeck.chapter-marker": {
+        "Name": "Marcador de capítulo",
+        "Tooltip": "Adiciona um marcador de capítulo à gravação em andamento."
+    },
+    "co.meldstudio.streamdeck.toggle-background-effect": {
+        "Name": "Fundo da câmera",
+        "Tooltip": "Alterna o desfoque ou a remoção de fundo de uma câmera."
+    },
     "Localization": {
         "Scene": "Cena",
         "Layer": "Camada",
         "Track": "Faixa de áudio",
         "Effect": "Efeito",
-        "Connecting": "Conectando ao Meld Studio..."
+        "Connecting": "Conectando ao Meld Studio...",
+        "Camera": "Câmera",
+        "Enable": "Ativar",
+        "Disable": "Desativar"
     }
 }

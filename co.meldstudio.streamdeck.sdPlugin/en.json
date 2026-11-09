@@ -72,6 +72,14 @@
         "Name": "Widget Control",
         "Tooltip": "Trigger events for Meld Studio widgets."
     },
+    "co.meldstudio.streamdeck.chapter-marker": {
+        "Name": "Chapter Marker",
+        "Tooltip": "Add a chapter marker to the active recording."
+    },
+    "co.meldstudio.streamdeck.toggle-background-effect": {
+        "Name": "Camera Background",
+        "Tooltip": "Toggle a camera's background blur or removal effect."
+    },
     "Localization": {
         "Scene": "Scene",
         "Layer": "Layer",
@@ -113,6 +121,9 @@
         "Pop it!": "Pop it!",
         "Add Time": "Add Time",
         "Seconds to Add": "Seconds to Add",
-        "Spin it!": "Spin it!"
+        "Spin it!": "Spin it!",
+        "Camera": "Camera",
+        "Enable": "Enable",
+        "Disable": "Disable"
     }
 }

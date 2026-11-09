@@ -72,6 +72,14 @@
         "Name": "Widget-Steuerung",
         "Tooltip": "Löst Ereignisse für Meld Studio Widgets aus."
     },
+    "co.meldstudio.streamdeck.chapter-marker": {
+        "Name": "Kapitelmarke",
+        "Tooltip": "Fügt der laufenden Aufnahme eine Kapitelmarke hinzu."
+    },
+    "co.meldstudio.streamdeck.toggle-background-effect": {
+        "Name": "Kamera-Hintergrund",
+        "Tooltip": "Schaltet den Hintergrund-Weichzeichner oder die Hintergrundentfernung einer Kamera um."
+    },
     "Localization": {
         "Scene": "Szene",
         "Layer": "Layer",
@@ -116,6 +124,9 @@
         "Spin it!": "Drehen!",
         "Counter": "Zähler",
         "Increment": "Erhöhen",
-        "Decrement": "Verringern"
+        "Decrement": "Verringern",
+        "Camera": "Kamera",
+        "Enable": "Aktivieren",
+        "Disable": "Deaktivieren"
     }
 }
