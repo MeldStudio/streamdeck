@@ -12,6 +12,10 @@ And we're not done yet! We are continually working to bring you even more capabi
 
 ## What's New
 
+Version 0.6.5.0
+- Added the Chapter Marker action, which drops a chapter marker into the active recording.
+- Added the Camera Background action to toggle, enable, or disable a camera layer's background blur or removal effect.
+
 Version 0.6.4.2
 - Raised the Record Clip action's maximum duration to 120 seconds, matching Meld Studio's supported clip length.
 
@@ -37,6 +41,13 @@ hi@meldstudio.co
 ------------
 # Change History:
 ------------
+
+## 2026-11-07 (v0.6.5.0)
+### Changes:
+-----------
+- Added the Chapter Marker action, which drops a chapter marker into the active recording.
+- Added the Camera Background action to toggle, enable, or disable a camera layer's background blur or removal effect.
+
 
 ## 2026-08-14 (v0.6.4.2)
 ### Changes:

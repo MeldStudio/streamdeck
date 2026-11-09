@@ -288,6 +288,7 @@ The `session` property is an object with a single key of `items`. `items` is an 
 | source      | `string` | Path for image source.                         |
 | url         | `string` | URL for browser source.                        |
 | mediaSource | `string` | Path for media source.                         |
+| backgroundEffectEnabled | `bool` | Camera layers only. Whether the background blur / removal effect is on for this layer. Set it with `setProperty`. |
 
 ```json
 {
@@ -615,6 +616,8 @@ meld.sendCommand("meld.screenshot");
 | `meld.recordClip`                | Records a clip.                   |
 | `meld.replay.show`               | Show replay layer for last clip.  |
 | `meld.replay.dismiss`            | Dismiss all active replay layers. |
+| `meld.insertRecordingChapterMarker` | Adds a chapter marker to every active recording. Ignored while not recording. |
+| `meld.insertNamedRecordingChapterMarker` | Opens Meld's chapter-naming prompt for the current recording position. Ignored while not recording. |
 
 #### **`sendCommandWithArgs(commandName: string, args: any[])`**
 
@@ -754,4 +757,7 @@ const layerId = "8DB9CC06AFCA152EA30278380B569751";
 
 meld.setProperty(layerId, "name", "Camera Frame (Active)");
 meld.setProperty(layerId, "visible", true);
+
+// Camera layers: turn the background blur / removal effect on or off.
+meld.setProperty(cameraLayerId, "backgroundEffectEnabled", true);
 ```

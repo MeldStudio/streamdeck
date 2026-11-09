@@ -10,7 +10,7 @@ If you're interested in developing a software intergration with Meld Studio, you
 
 The plugin is built on Elgato's official [Node.js Stream Deck SDK](https://docs.elgato.com/streamdeck/sdk/introduction/getting-started/) (`@elgato/streamdeck`). It runs as a single long-lived Node process, so there is exactly **one** connection to Meld Studio for the whole plugin, shared by every action and every property inspector.
 
-- `src/plugin.ts` — entry point; registers the 14 actions and starts the Meld connection.
+- `src/plugin.ts` — entry point; registers the 16 actions and starts the Meld connection.
 - `src/meld/` — the Meld service layer: a single QWebChannel-over-WebSocket connection (`connection.ts`) with automatic reconnect and a track-observer registry, a typed session model (`session.ts` / `types.ts`), and typed events (`events.ts`).
 - `src/actions/` — one file per action, all extending `MeldAction` (`base.ts`), which turns Meld/session/reconnect events into a single declarative `render()` call.
 - `src/ui-bridge.ts` — answers property-inspector requests for session data from the one connection; the inspectors under `co.meldstudio.streamdeck.sdPlugin/ui/` never talk to Meld directly.
