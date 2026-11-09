@@ -76,8 +76,15 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		return value ? 0 : 1;
 	}
 
-	/** Toggles the property via Meld. */
-	protected abstract toggle(settings: T): void;
+	/**
+	 * Toggles the property via Meld.
+	 * @param settings The action's settings.
+	 * @param next The value the press is expected to produce, or `null` when the
+	 * current value is unknown. Actions backed by a native Meld toggle can ignore
+	 * it; actions that write the property directly must use it rather than
+	 * re-deriving it from the snapshot, which still predates any pending press.
+	 */
+	protected abstract toggle(settings: T, next: boolean | null): void;
 
 	/**
 	 * Whether a press should go ahead even when {@link currentValue} is `null`.
@@ -135,7 +142,7 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 				// milliseconds behind and the key would otherwise look unresponsive.
 				void this.setKeyState(ev.action, this.valueToKeyState(next));
 			}
-			this.toggle(settings);
+			this.toggle(settings, next);
 			return;
 		}
 
@@ -149,7 +156,7 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		if (current === null) {
 			// Actionable but unreadable: there is nothing to compare against, so
 			// forward the press and let Meld decide, as the pre-migration plugin did.
-			this.toggle(settings);
+			this.toggle(settings, desired);
 			return;
 		}
 
@@ -157,7 +164,7 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		if (current !== desired) {
 			this.#apply(ev.action.id, desired);
 			void this.setKeyState(ev.action, this.valueToKeyState(desired));
-			this.toggle(settings);
+			this.toggle(settings, desired);
 		} else {
 			void this.setKeyState(ev.action, this.valueToKeyState(current));
 		}

@@ -43,6 +43,7 @@ export type FakeLayer = {
 	source?: string;
 	url?: string;
 	text?: string;
+	backgroundEffectEnabled?: boolean;
 };
 
 /** Mirrors `effectsToMap`. */
@@ -163,6 +164,8 @@ export class SessionBuilder {
 			source?: string;
 			url?: string;
 			text?: string;
+			/** Present only on camera layers; Meld publishes it for those alone. */
+			backgroundEffectEnabled?: boolean;
 		} = {},
 	): string {
 		const id = this.#id(`layer:${parent}:${name}`);
@@ -195,6 +198,9 @@ export class SessionBuilder {
 		}
 		if (options.text !== undefined) {
 			layer.text = options.text;
+		}
+		if (options.backgroundEffectEnabled !== undefined) {
+			layer.backgroundEffectEnabled = options.backgroundEffectEnabled;
 		}
 		this.#items[id] = layer;
 		return id;
