@@ -260,14 +260,14 @@
 			"PropertyInspectorPath": "ui/widget-control.html"
 		},
 		{
-			"Icon": "assets/Chapter Marker/Action Icon/chapter-marker-action",
+			"Icon": "assets/Chapter Marker/Action Icon/chapterMarker",
 			"Name": "Chapter Marker",
 			"States": [
 				{
-					"Image": "assets/Chapter Marker/Key Icon/chapter-marker-on"
+					"Image": "assets/Chapter Marker/Key Icon/chapterMarker"
 				},
 				{
-					"Image": "assets/Chapter Marker/Key Icon/chapter-marker-off"
+					"Image": "assets/Chapter Marker/Key Icon/chapterMarker-off"
 				}
 			],
 			"SupportedInMultiActions": true,
@@ -277,14 +277,14 @@
 			"PropertyInspectorPath": "ui/chapter-marker.html"
 		},
 		{
-			"Icon": "assets/Camera Background/Action Icon/camera-background-action",
+			"Icon": "assets/Camera Background/Action Icon/cameraBg",
 			"Name": "Camera Background",
 			"States": [
 				{
-					"Image": "assets/Camera Background/Key Icon/camera-background-on"
+					"Image": "assets/Camera Background/Key Icon/cameraBg"
 				},
 				{
-					"Image": "assets/Camera Background/Key Icon/camera-background-off"
+					"Image": "assets/Camera Background/Key Icon/cameraBg-off"
 				}
 			],
 			"SupportedInMultiActions": true,
