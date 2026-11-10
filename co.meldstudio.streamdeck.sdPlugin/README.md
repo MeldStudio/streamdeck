@@ -19,11 +19,6 @@ Version 0.6.5.0
 Version 0.6.4.2
 - Raised the Record Clip action's maximum duration to 120 seconds, matching Meld Studio's supported clip length.
 
-Version 0.6.4.1
-- Added configurable durations to the Record Clip action. Choose a 10, 15, 30, 60, or 90 second preset, or enter a custom duration from 0 to 90 seconds.
-- Improved action state synchronization and recovery after Meld Studio reconnects and session restores.
-- Fixed reversed active/inactive icon states on the Cue, Layer Visibility, Effect Visibility, Record, Go Live, and Change Scene actions so thirdparty icon packs indicate correctly with Meld Studio actions.
-
 ## Helpful Links
 
 https://meldstudio.co/
