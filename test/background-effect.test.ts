@@ -4,9 +4,9 @@
 // The Camera Background action, driven end-to-end against the result-level
 // Meld mock. Meld publishes `backgroundEffectEnabled` on camera layers only and
 // has no dedicated toggle call, so the action reads the snapshot and writes the
-// property back through `setProperty`. Older Meld builds accept the write but
-// never publish the field: Enable / Disable must still work there, and Toggle
-// must refuse rather than guess.
+// property back through `setProperty`. Meld 0.10.7.5 and later accept the write
+// even when they never publish the field: Enable / Disable must still work
+// there, and Toggle must refuse rather than guess.
 
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
@@ -29,6 +29,18 @@ function build(namespace: string): { scenario: Scenario; ids: Record<string, str
 	// A camera on a Meld build that predates the field looks like a plain layer.
 	const legacyCamera = b.layer(other, "Old Webcam");
 	return { scenario: b.build(namespace, "camera background"), ids: { scene, other, cameraOn, cameraOff, image, legacyCamera } };
+}
+
+/**
+ * A Meld build that accepts the property but does not publish it: no layer
+ * carries the field, so cameras and other layers look alike.
+ */
+function buildLegacy(namespace: string): { scenario: Scenario; ids: Record<string, string> } {
+	const b = new SessionBuilder(namespace);
+	const scene = b.scene("Main", { current: true });
+	const camera = b.layer(scene, "Webcam");
+	const image = b.layer(scene, "Frame", { source: "file:///frame.png" });
+	return { scenario: b.build(namespace, "camera background (legacy)"), ids: { scene, camera, image } };
 }
 
 describe("camera background effect", () => {
@@ -136,33 +148,44 @@ describe("camera background effect", () => {
 	});
 
 	test("a camera whose state Meld does not publish still accepts enable and disable", async () => {
+		const legacy = buildLegacy("bg-legacy");
+		server.loadScenario(legacy.scenario);
+		await sleep(700);
+
 		const action = new ToggleBackgroundEffect(connection);
-		const settings = { scene: ids.other, layer: ids.legacyCamera, action: "enable" };
+		const settings = { scene: legacy.ids.scene, layer: legacy.ids.camera, action: "enable" };
 		const key = new FakeActionInstance("legacy", settings);
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
 		assert.equal(key.state, 1, "an unknown state renders as inactive");
+		const painted = key.states.length;
 
 		await press(action, key, settings);
 		assert.deepEqual(server.methods.setProperty.mock.calls.at(-1)?.arguments, [
-			ids.legacyCamera,
+			legacy.ids.camera,
 			BACKGROUND_EFFECT_PROPERTY,
 			true,
 		]);
 
 		await press(action, key, { ...settings, action: "disable" });
 		assert.deepEqual(server.methods.setProperty.mock.calls.at(-1)?.arguments, [
-			ids.legacyCamera,
+			legacy.ids.camera,
 			BACKGROUND_EFFECT_PROPERTY,
 			false,
 		]);
+		// No snapshot will ever confirm either write, so painting the desired state
+		// would light the key for the pending window and then drop it back to the
+		// unknown state while the effect is actually on.
+		assert.deepEqual(key.states.slice(painted), [], "no unconfirmable state is painted");
 	});
 
 	test("toggle refuses to guess when Meld does not publish the state", async () => {
+		const legacy = buildLegacy("bg-legacy");
+		server.loadScenario(legacy.scenario);
+		await sleep(700);
+
 		const action = new ToggleBackgroundEffect(connection);
-		// The field is absent from the snapshot at the moment of the press: the
-		// mock accepts earlier writes, so a fresh scenario is what "legacy" means.
-		const settings = { scene: ids.other, layer: ids.legacyCamera, action: "toggle" };
+		const settings = { scene: legacy.ids.scene, layer: legacy.ids.camera, action: "toggle" };
 		const key = new FakeActionInstance("legacy-toggle", settings);
 		mount(action, [key]);
 		await action.onWillAppear(willAppear(key, settings) as never);
@@ -171,6 +194,77 @@ describe("camera background effect", () => {
 
 		assert.equal(server.methods.setProperty.mock.callCount(), 0, "nothing is written blind");
 		assert.equal(key.state, 1, "no state is faked");
+	});
+
+	test("a non-camera layer is never written once Meld identifies cameras", async () => {
+		// A key configured against a build that listed every layer may point at an
+		// image or text layer. Once Meld publishes the field, its absence means the
+		// layer is not a camera, so no mode may write to it.
+		const action = new ToggleBackgroundEffect(connection);
+		for (const mode of ["toggle", "enable", "disable"]) {
+			const settings = { scene: ids.scene, layer: ids.image, action: mode };
+			const key = new FakeActionInstance(`image-${mode}`, settings);
+			mount(action, [key]);
+			await action.onWillAppear(willAppear(key, settings) as never);
+			const painted = key.states.length;
+			await press(action, key, settings);
+			assert.deepEqual(key.states.slice(painted), [], `${mode}: no state is painted`);
+		}
+		assert.equal(server.methods.setProperty.mock.callCount(), 0);
+	});
+
+	test("two toggle keys on one camera build on each other's presses", async () => {
+		// Meld has no toggle call for this switch, so each press writes an absolute
+		// value. Two keys reasoning from their own presses would both read the stale
+		// snapshot and write the same value, losing one toggle.
+		const action = new ToggleBackgroundEffect(connection);
+		const settings = { scene: ids.scene, layer: ids.cameraOn, action: "toggle" };
+		const a = new FakeActionInstance("two-a", settings);
+		const b = new FakeActionInstance("two-b", settings);
+		mount(action, [a, b]);
+		await action.onWillAppear(willAppear(a, settings) as never);
+		await action.onWillAppear(willAppear(b, settings) as never);
+
+		await press(action, a, settings);
+		await sleep(20);
+		assert.equal(b.state, 1, "the other key shows the press too");
+		await press(action, b, settings);
+		await sleep(20);
+
+		assert.deepEqual(
+			server.methods.setProperty.mock.calls.map((call) => call.arguments[2]),
+			[false, true],
+		);
+		assert.equal(a.state, 0);
+		assert.equal(b.state, 0);
+
+		await sleep(700);
+		assert.equal((server.session.items[ids.cameraOn] as FakeLayer).backgroundEffectEnabled, true);
+		assert.equal(a.state, 0);
+		assert.equal(b.state, 0);
+	});
+
+	test("toggle builds on another key's enable or disable", async () => {
+		const action = new ToggleBackgroundEffect(connection);
+		const toggle = { scene: ids.scene, layer: ids.cameraOn, action: "toggle" };
+		const enable = { scene: ids.scene, layer: ids.cameraOn, action: "enable" };
+		const a = new FakeActionInstance("mixed-toggle", toggle);
+		const b = new FakeActionInstance("mixed-enable", enable);
+		mount(action, [a, b]);
+		await action.onWillAppear(willAppear(a, toggle) as never);
+		await action.onWillAppear(willAppear(b, enable) as never);
+
+		await press(action, a, toggle);
+		await press(action, b, enable);
+		await press(action, a, toggle);
+		await sleep(20);
+
+		assert.deepEqual(
+			server.methods.setProperty.mock.calls.map((call) => call.arguments[2]),
+			[false, true, false],
+		);
+		assert.equal(a.state, 1);
+		assert.equal(b.state, 1);
 	});
 
 	test("a layer missing from the current Meld instance is never written to", async () => {
@@ -236,6 +330,7 @@ describe("camera background effect", () => {
 		await action.onWillAppear(willAppear(key, { scene: ids.scene, layer: ids.cameraOff, action: "toggle" }) as never);
 		const setProperty = server.meld.setProperty;
 		server.meld.setProperty = undefined;
+		const painted = key.states.length;
 		try {
 			await press(action, key, { scene: ids.scene, layer: ids.cameraOff, action: "toggle" });
 			await press(action, key, { scene: ids.scene, layer: ids.cameraOff, action: "enable" });
@@ -243,6 +338,7 @@ describe("camera background effect", () => {
 			server.meld.setProperty = setProperty;
 		}
 		assert.equal(server.methods.setProperty.mock.callCount(), 0);
+		assert.deepEqual(key.states.slice(painted), [], "no state is painted for a write that cannot happen");
 	});
 
 	test("an unconfirmed press does not leak into a restarted Meld instance", async () => {

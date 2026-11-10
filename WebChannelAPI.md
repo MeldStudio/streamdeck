@@ -288,7 +288,7 @@ The `session` property is an object with a single key of `items`. `items` is an 
 | source      | `string` | Path for image source.                         |
 | url         | `string` | URL for browser source.                        |
 | mediaSource | `string` | Path for media source.                         |
-| backgroundEffectEnabled | `bool` | Camera layers only. Whether the background blur / removal effect is on for this layer. Set it with `setProperty`. |
+| backgroundEffectEnabled | `bool` | Camera layers only. Whether the background blur / removal effect is on for this layer. Set it with `setProperty` (Meld Studio 0.10.7.5 and later). Builds that do not publish it omit the key on every layer. |
 
 ```json
 {

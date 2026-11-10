@@ -24,9 +24,10 @@ export const BACKGROUND_EFFECT_PROPERTY = "backgroundEffectEnabled";
  * Toggles (or forces) the background blur / removal effect on a camera layer.
  *
  * The layer's `backgroundEffectEnabled` field is published by Meld's
- * StreamDeckMapper for camera layers. Builds that predate the field still
- * accept the property through `setProperty`, so Enable / Disable keep working
- * against them; only Toggle, which has to know the current value, requires it.
+ * StreamDeckMapper for camera layers. Meld Studio 0.10.7.5 and later accept the
+ * property through `setProperty` even when they do not publish it, so Enable /
+ * Disable keep working against them; only Toggle, which has to know the
+ * current value, requires the published field.
  */
 @action({ UUID: "co.meldstudio.streamdeck.toggle-background-effect" })
 export class ToggleBackgroundEffect extends SessionToggleAction<ToggleBackgroundEffectSettings> {
@@ -70,8 +71,21 @@ export class ToggleBackgroundEffect extends SessionToggleAction<ToggleBackground
 	protected override actsWithUnknownState(settings: ToggleBackgroundEffectSettings): boolean {
 		// The target is real as long as the layer is in the current snapshot; only
 		// its value may be unreadable. Enable / Disable are idempotent writes and
-		// are forwarded regardless.
-		return this.session().has(settings.layer);
+		// are forwarded regardless, unless this Meld publishes the field: it then
+		// publishes it on every camera, so a layer without it is not a camera (a
+		// key configured against an older build, whose inspector listed every
+		// layer) and must not be written to.
+		const session = this.session();
+		if (!session.has(settings.layer)) {
+			return false;
+		}
+		return !session.layers().some((layer) => typeof layer.backgroundEffectEnabled === "boolean");
+	}
+
+	protected override canAct(): boolean {
+		// Without `setProperty` there is no way to write the switch, so a press must
+		// not paint a state nothing will confirm.
+		return !!this.meld.meld?.setProperty;
 	}
 
 	protected override setDirect(settings: ToggleBackgroundEffectSettings, desired: boolean): boolean {

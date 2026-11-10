@@ -33,8 +33,9 @@
         <div class="sdpi-item" id="state-unavailable" style="display: none;">
             <details class="message caution">
                 <summary>Meld Studio reported no camera layers.</summary>
-                <p>Older Meld Studio versions do not identify cameras or report their background state: every layer
-                    is listed, and only Enable and Disable work. Update Meld Studio to use Toggle.</p>
+                <p>This Meld Studio version does not identify cameras or report their background state: every layer
+                    is listed, and only Enable and Disable work (they need Meld Studio 0.10.7.5 or later). Update
+                    Meld Studio to use Toggle.</p>
             </details>
         </div>
 
@@ -64,13 +65,11 @@
                 unavailable.style.display = s.connected && !cameraFieldPublished ? "" : "none";
             });
 
-            // Only scenes that are not vertical, and only camera layers once Meld identifies them.
+            // Every scene, vertical ones included: the switch belongs to the camera
+            // layer, wherever it sits. Only camera layers once Meld identifies them.
             MeldPI.bindSessionSelects(["scene", "layer"], (type, item) => {
                 if (type === "layer") {
                     return !cameraFieldPublished || hasField(item);
-                }
-                if (type === "scene") {
-                    return !item.vertical;
                 }
                 return true;
             });
