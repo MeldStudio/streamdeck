@@ -397,6 +397,33 @@ describe("session toggles", () => {
 		);
 	});
 
+	test("two keys on one layer share a pending press", async () => {
+		// Meld flips the layer once per press, so two toggles inside the debounce
+		// leave it where it started. Both keys must show that, not their own guess
+		// from the stale snapshot.
+		const settings = { scene: ids.sceneB, layer: ids.layerB, action: "toggle" };
+		const action = new ToggleLayer(connection);
+		const a = new FakeActionInstance("share-a", settings);
+		const b = new FakeActionInstance("share-b", settings);
+		mount(action, [a, b]);
+		await action.onWillAppear(willAppear(a, settings) as never);
+		await action.onWillAppear(willAppear(b, settings) as never);
+		assert.equal(a.state, 1, "the layer starts hidden");
+
+		await press(action, a, settings);
+		await sleep(20);
+		assert.equal(b.state, 0, "the other key shows the first press");
+		await press(action, b, settings);
+		await sleep(20);
+		assert.equal(a.state, 1);
+		assert.equal(b.state, 1);
+
+		await sleep(700);
+		assert.equal((server.session.items[ids.layerB] as { visible: boolean }).visible, false);
+		assert.equal(a.state, 1);
+		assert.equal(b.state, 1);
+	});
+
 	test("a toggle press repaints immediately rather than waiting for the snapshot", async () => {
 		// The confirmation is hundreds of milliseconds away; a key that only
 		// repaints then reads as unresponsive.
