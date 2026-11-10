@@ -52,6 +52,11 @@ export type LayerItem = {
 	text?: string;
 	mediaSource?: string;
 	isPlaying?: boolean;
+	/**
+	 * Camera layers only: whether the background blur / removal effect is on for
+	 * this layer. Absent on non-camera layers and on Meld builds that predate it.
+	 */
+	backgroundEffectEnabled?: boolean;
 };
 
 /** An effect applied to a layer. */

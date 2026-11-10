@@ -28,10 +28,11 @@ const TOGGLE_CONFIRM_TTL_MS = 3_000;
  */
 export abstract class SessionToggleAction<T extends JsonObject> extends MeldAction<T> {
 	/**
-	 * The value each pending press is waiting for. Meld confirms these through the
-	 * republished session, which rides a retriggerable autosave, so the wait is
-	 * far longer than a gain echo; an unconfirmed press expires back to whatever
-	 * the session says.
+	 * The value each pending press is waiting for, keyed by the target item rather
+	 * than the key, so every key pointing at one item reasons from the same latest
+	 * press. Meld confirms these through the republished session, which rides a
+	 * retriggerable autosave, so the wait is far longer than a gain echo; an
+	 * unconfirmed press expires back to whatever the session says.
 	 */
 	readonly #pending = new OptimisticStore<boolean>(TOGGLE_CONFIRM_TTL_MS, () =>
 		void this.renderAll("sessionChanged"),
@@ -76,8 +77,15 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		return value ? 0 : 1;
 	}
 
-	/** Toggles the property via Meld. */
-	protected abstract toggle(settings: T): void;
+	/**
+	 * Toggles the property via Meld.
+	 * @param settings The action's settings.
+	 * @param next The value the press is expected to produce, or `null` when the
+	 * current value is unknown. Actions backed by a native Meld toggle can ignore
+	 * it; actions that write the property directly must use it rather than
+	 * re-deriving it from the snapshot, which still predates any pending press.
+	 */
+	protected abstract toggle(settings: T, next: boolean | null): void;
 
 	/**
 	 * Whether a press should go ahead even when {@link currentValue} is `null`.
@@ -90,6 +98,15 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 	 */
 	protected actsWithUnknownState(_settings: T): boolean {
 		return false;
+	}
+
+	/**
+	 * Whether the connected Meld can carry out this action's presses at all. When
+	 * it cannot, a press is ignored outright rather than painting a state that no
+	 * command will ever confirm.
+	 */
+	protected canAct(): boolean {
+		return true;
 	}
 
 	/**
@@ -110,7 +127,7 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		// session: a command for a dead id (e.g. from a previous Meld instance) is
 		// a silent no-op in Meld and would never be echoed, so repainting here
 		// would fake a confirmed state.
-		if (!this.meld.ready) {
+		if (!this.meld.ready || !this.canAct()) {
 			return;
 		}
 		// Meld only republishes the session behind its debounced autosave, so the
@@ -118,9 +135,13 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		// several hundred milliseconds. A pending press is therefore the better
 		// answer: comparing against the stale snapshot would make a second press
 		// toggle again and undo the first — pressing "show" twice would hide the
-		// layer the user asked to show.
-		const authoritative = this.currentValue(settings, this.session());
-		const pending = this.#pending.get(ev.action.id);
+		// layer the user asked to show. The pending value is shared by every key on
+		// the same target, so a second key pressed inside that window builds on the
+		// first key's press instead of repeating it.
+		const session = this.session();
+		const target = this.#pendingKey(settings, session);
+		const authoritative = this.currentValue(settings, session);
+		const pending = target === undefined ? undefined : this.#pending.get(target);
 		const current = pending ?? authoritative;
 		if (current === null && !this.actsWithUnknownState(settings)) {
 			return;
@@ -129,75 +150,77 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		const mode = this.mode(settings);
 		if (!mode || mode === "toggle") {
 			const next = current === null ? null : !current;
-			this.#apply(ev.action.id, next);
+			this.#apply(target, next);
 			if (next !== null) {
 				// Paint the press straight away; the confirmation is hundreds of
 				// milliseconds behind and the key would otherwise look unresponsive.
 				void this.setKeyState(ev.action, this.valueToKeyState(next));
 			}
-			this.toggle(settings);
+			this.toggle(settings, next);
 			return;
 		}
 
 		const desired = mode === this.forceOnValue;
-		if (this.setDirect(settings, desired)) {
-			this.#apply(ev.action.id, desired);
-			void this.setKeyState(ev.action, this.valueToKeyState(desired));
-			return;
-		}
-
 		if (current === null) {
 			// Actionable but unreadable: there is nothing to compare against, so
 			// forward the press and let Meld decide, as the pre-migration plugin did.
-			this.toggle(settings);
+			// Nothing is painted or remembered, because no snapshot will ever confirm
+			// it: the key would show the desired state until the pending value
+			// expired and then fall back to the unknown state, contradicting Meld.
+			if (!this.setDirect(settings, desired)) {
+				this.toggle(settings, desired);
+			}
+			return;
+		}
+
+		if (this.setDirect(settings, desired)) {
+			this.#apply(target, desired);
+			void this.setKeyState(ev.action, this.valueToKeyState(desired));
 			return;
 		}
 
 		// No direct setter: toggle only if we are not already in the desired state.
 		if (current !== desired) {
-			this.#apply(ev.action.id, desired);
+			this.#apply(target, desired);
 			void this.setKeyState(ev.action, this.valueToKeyState(desired));
-			this.toggle(settings);
+			this.toggle(settings, desired);
 		} else {
 			void this.setKeyState(ev.action, this.valueToKeyState(current));
 		}
 	}
 
-	/** @inheritdoc */
-	protected override onDisappear(context: string): void {
-		this.#pending.clear(context);
-	}
-
-	/** @inheritdoc */
-	protected override onSettingsChanged({
-		action,
-		settings,
-		previous,
-	}: RenderArgs<T> & { previous: T | undefined }): void {
-		// A pending press belongs to the item that was configured when it was made.
-		// Retargeting the key would otherwise display that value against the new
-		// item and let the next press move it the wrong way.
-		if (previous !== undefined && this.targetOf(previous) !== this.targetOf(settings)) {
-			this.#pending.clear(action.id);
-		}
-	}
-
 	/**
-	 * The id this action acts on, used to notice a retarget.
+	 * The id this action acts on. Pending presses are keyed by it, so a key that
+	 * is retargeted or removed neither carries a press to another item nor drops
+	 * one that other keys on the same item still rely on.
 	 * @param settings The action's settings.
 	 */
 	protected abstract targetOf(settings: T): string | undefined;
 
 	/**
+	 * The key a pending press is stored under: the target after migration, so a
+	 * press that carries pre-migration settings (an indexed effect id, say) and the
+	 * render that sees the migrated ones agree on the item.
+	 * @param settings The action's settings, migrated or not.
+	 * @param session The current session snapshot.
+	 */
+	#pendingKey(settings: T, session: MeldSession): string | undefined {
+		return this.targetOf(this.migrateSettings(settings, session));
+	}
+
+	/**
 	 * Records the value a press is waiting for, so a follow-up press reasons from
 	 * it rather than from the not-yet-republished snapshot.
-	 * @param context Context id.
+	 * Other keys on the same target are repainted so they show the press too.
+	 * @param target The target item's id.
 	 * @param value The value the press should produce, or `null` when unknown.
 	 */
-	#apply(context: string, value: boolean | null): void {
-		if (value !== null) {
-			this.#pending.set(context, value);
+	#apply(target: string | undefined, value: boolean | null): void {
+		if (target === undefined || value === null) {
+			return;
 		}
+		this.#pending.set(target, value);
+		void this.renderAll("sessionChanged");
 	}
 
 	/** @inheritdoc */
@@ -211,12 +234,13 @@ export abstract class SessionToggleAction<T extends JsonObject> extends MeldActi
 		}
 
 		const value = this.currentValue(settings, session);
-		const pending = this.#pending.get(action.id);
-		if (pending !== undefined && value === pending) {
+		const target = this.#pendingKey(settings, session);
+		const pending = target === undefined ? undefined : this.#pending.get(target);
+		if (target !== undefined && pending !== undefined && value === pending) {
 			// The snapshot caught up with the press; stop overriding it.
-			this.#pending.clear(action.id);
+			this.#pending.clear(target);
 		}
-		const shown = this.#pending.get(action.id) ?? value;
+		const shown = (target === undefined ? undefined : this.#pending.get(target)) ?? value;
 		if (shown === null) {
 			return void this.setKeyState(action, this.missingItemState);
 		}

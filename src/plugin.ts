@@ -3,11 +3,13 @@
 
 import streamDeck from "@elgato/streamdeck";
 
+import { ChapterMarker } from "./actions/chapter-marker.js";
 import { Clip } from "./actions/clip.js";
 import { Media } from "./actions/media.js";
 import { Replay } from "./actions/replay.js";
 import { Screenshot } from "./actions/screenshot.js";
 import { ShowScene } from "./actions/show-scene.js";
+import { ToggleBackgroundEffect } from "./actions/toggle-background-effect.js";
 import { ToggleEffect } from "./actions/toggle-effect.js";
 import { ToggleLayer } from "./actions/toggle-layer.js";
 import { ToggleMonitor } from "./actions/toggle-monitor.js";
@@ -38,6 +40,8 @@ streamDeck.actions.registerAction(new ToggleStream());
 streamDeck.actions.registerAction(new Replay());
 streamDeck.actions.registerAction(new Media());
 streamDeck.actions.registerAction(new WidgetControl());
+streamDeck.actions.registerAction(new ChapterMarker());
+streamDeck.actions.registerAction(new ToggleBackgroundEffect());
 
 // Serve session data to property inspectors from the single Meld connection.
 registerUiBridge();

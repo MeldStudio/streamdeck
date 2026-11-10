@@ -11,7 +11,7 @@
 	},
 	"Description": "Meld Studio 💙 Stream Deck. Take your stream to new heights with powerful new capabilities at your fingertips. Trigger transitions, manage audio tracks, toggle filter effects on and off, and much more.",
 	"URL": "https://meldstudio.co",
-	"Version": "0.6.4.2",
+	"Version": "0.6.5.0",
 	"UUID": "co.meldstudio.streamdeck",
 	"OS": [
 		{
@@ -258,6 +258,40 @@
 			"Tooltip": "Trigger events for Meld Studio widgets.",
 			"UUID": "co.meldstudio.streamdeck.widget-control",
 			"PropertyInspectorPath": "ui/widget-control.html"
+		},
+		{
+			"Icon": "assets/Chapter Marker/Action Icon/chapterMarker",
+			"Name": "Chapter Marker",
+			"States": [
+				{
+					"Image": "assets/Chapter Marker/Key Icon/chapterMarker"
+				},
+				{
+					"Image": "assets/Chapter Marker/Key Icon/chapterMarker-off"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
+			"Tooltip": "Add a chapter marker to the active recording.",
+			"UUID": "co.meldstudio.streamdeck.chapter-marker",
+			"PropertyInspectorPath": "ui/chapter-marker.html"
+		},
+		{
+			"Icon": "assets/Camera Background/Action Icon/cameraBg",
+			"Name": "Camera Background",
+			"States": [
+				{
+					"Image": "assets/Camera Background/Key Icon/cameraBg"
+				},
+				{
+					"Image": "assets/Camera Background/Key Icon/cameraBg-off"
+				}
+			],
+			"SupportedInMultiActions": true,
+			"DisableAutomaticStates": true,
+			"Tooltip": "Toggle a camera's background blur or removal effect.",
+			"UUID": "co.meldstudio.streamdeck.toggle-background-effect",
+			"PropertyInspectorPath": "ui/toggle-background-effect.html"
 		}
 	]
 }
